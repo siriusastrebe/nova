@@ -1,0 +1,19 @@
+{
+  "authentication": {
+    "secret": "some-secret",
+    "entity": "account",
+    "service": "accounts",
+    "authStrategies": [ "jwt", "local" ],
+    "jwtOptions": {
+      "header": { "typ": "access" },
+      "audience": "https://yourdomain.com",
+      "issuer": "yourfeathersapp",
+      "algorithm": "HS256",
+      "expiresIn": "1d"
+    },
+    "local": {
+      "usernameField": "name",
+      "passwordField": "password"
+    }
+  }
+}
