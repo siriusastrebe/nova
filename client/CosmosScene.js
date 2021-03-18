@@ -106,9 +106,9 @@ export function updateAsset(asset) {
     existing.object.position.y = asset.y;
     existing.object.position.z = asset.z;
 
-    existing.object.rotation.x = asset.roll;
-    existing.object.rotation.y = asset.pitch;
-    existing.object.rotation.z = asset.yaw;
+    existing.object.rotation.x = asset.pitch;
+    existing.object.rotation.y = asset.yaw;
+    existing.object.rotation.z = asset.roll;
   } else {
     console.error('No asset found with with the id ' + asset.id);
   }

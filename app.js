@@ -23,7 +23,12 @@ const app = express(feathers());                 // Creates an ExpressJS compati
 app.use(express.json());                         // Parse HTTP JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded params
 app.configure(express.rest());                   // Add REST API support
-app.configure(socketio());                       // Configure Socket.io real-time APIs
+app.configure(socketio((io) => {                 // Configure Socket.io real-time APIs
+  io.use((socket, next) => {
+    socket.feathers.socketId = socket.id;        // Provides socketId as an attribute of connection
+    next();
+  });
+}));
 app.configure(configuration());                  // Apply configuration located in default/config.json
 app.use(express.errorHandler());                 // Register a nicer error handler than the default Express one
 app.use(express.static(__dirname));              // Host static files from the current folder
@@ -54,7 +59,8 @@ class AssetsService {
       vz: data.vz,
       vroll: data.vroll,
       vpitch: data.vpitch,
-      vyaw: data.vyaw
+      vyaw: data.vyaw,
+      socketId: data.socketId
     }
 
     this.assets[id] = asset;
@@ -99,7 +105,7 @@ app.get('*', async (req, res) => {
 });
 
 // ---- Feathers Real-Time Support ----
-app.on('connection', connection => {
+app.on('connection', (connection, b) => {
   app.channel('everybody').join(connection);
 
   app.service('assets').create({
@@ -115,7 +121,8 @@ app.on('connection', connection => {
     vz: 0,
     vroll: 0,
     vpitch: 0,
-    vyaw: 0
+    vyaw: 0,
+    socketId: connection.socketId
   }).then(asset => console.log('Created asset ', asset));
 });
 app.service('assets').publish((data, hook) => {

@@ -10,6 +10,7 @@ export default function initializeFeathers(addAsset, updateAsset) {
   const socket = io(document.domain + ':80');
   const feathers = createFeathersClient();
   let assets = [];
+  let controlling;
 
   feathers.configure(socketio(socket));
   feathers.configure(
@@ -24,13 +25,20 @@ export default function initializeFeathers(addAsset, updateAsset) {
     assets.forEach((asset) => {
       addAsset(asset);
       assets.push(asset);
+
+      if (asset.socketId === socket.id) {
+        controlling = asset;
+      }
     });
   });
 
   feathers.service('assets').on('created', (asset) => {
-console.log('Asset created', asset);
     addAsset(asset);
     assets.push(asset);
+
+    if (asset.socketId === socket.id) {
+      controlling = asset;
+    }
   });
 
   feathers.service('assets').on('updated', (asset, b) => {
@@ -38,43 +46,65 @@ console.log('Asset created', asset);
     updateAsset(asset);
     const current = assets.find(a => a.id === asset.id)
     assets[assets.indexOf(current)] = asset;
+
+    if (asset.socketId === socket.id) {
+      controlling = asset;
+    }
   });
 
   feathers.service('assets').on('patched', (asset, b) => {
     updateAsset(asset, b);
     const current = assets.find(a => a.id === asset.id)
     assets[assets.indexOf(current)] = asset;
+
+    if (asset.socketId === socket.id) {
+      controlling = asset;
+    }
   });
 
   document.onkeydown = function (e) {
-    const key = e.key.toLowerCase();
-    let direction;
-    if (key === 'w' || key === 'arrowup') {
-      direction = 'forward';
-    } else if (key === 'a' || key === 'arrowleft') {
-      direction = 'left';
-    } else if (key === 's' || key === 'arrowdown') {
-      direction = 'back';
-    } else if (key === 'd' || key === 'arrowright') {
-      direction = 'right';
-    }
+    if (controlling) {
+      const key = e.key.toLowerCase();
+      let direction;
+      if (key === 'w' || key === 'arrowup') {
+        direction = 'forward';
+      } else if (key === 'a' || key === 'arrowleft') {
+        direction = 'left';
+      } else if (key === 's' || key === 'arrowdown') {
+        direction = 'back';
+      } else if (key === 'd' || key === 'arrowright') {
+        direction = 'right';
+      } else if (key === 'q') {
+        direction = 'counterclockwise';
+      } else if (key === 'e') {
+        direction = 'clockwise';
+      }
 
-    if (direction === 'left' && assets[0].vyaw !== -1) {
-      feathers.service('assets').patch(assets[0].id, {
-        vyaw: -1
-      });
-    } else if (direction === 'right' && assets[0].vyaw !== 1) {
-      feathers.service('assets').patch(assets[0].id, {
-        vyaw: 1
-      });
-    } else if (direction === 'forward' && assets[0].vpitch !== 1) {
-      feathers.service('assets').patch(assets[0].id, {
-        vpitch: 1
-      });
-    } else if (direction === 'back' && assets[0].vpitch !== -1) {
-      feathers.service('assets').patch(assets[0].id, {
-        vpitch: -1
-      });
+      if (direction === 'left' && controlling.vyaw !== 1) {
+        feathers.service('assets').patch(controlling.id, {
+          vyaw: 1
+        });
+      } else if (direction === 'right' && controlling.vyaw !== -1) {
+        feathers.service('assets').patch(controlling.id, {
+          vyaw: -1
+        });
+      } else if (direction === 'forward' && controlling.vpitch !== 1) {
+        feathers.service('assets').patch(controlling.id, {
+          vpitch: 1
+        });
+      } else if (direction === 'back' && controlling.vpitch !== -1) {
+        feathers.service('assets').patch(controlling.id, {
+          vpitch: -1
+        });
+      } else if (direction === 'counterclockwise' && controlling.vroll !== -1) {
+        feathers.service('assets').patch(controlling.id, {
+          vroll: -1
+        });
+      } else if (direction === 'clockwise' && controlling.vroll !== -1) {
+        feathers.service('assets').patch(controlling.id, {
+          vroll: 1
+        });
+      }
     }
   }
 
@@ -89,17 +119,27 @@ console.log('Asset created', asset);
       direction = 'back';
     } else if (key === 'd' || key === 'arrowright') {
       direction = 'right';
+    } else if (key === 'q') {
+      direction = 'counterclockwise';
+    } else if (key === 'e') {
+      direction = 'clockwise';
     }
 
-    if (direction === 'left' || direction === 'right' && assets[0].vyaw !== 0) {
-      feathers.service('assets').patch(assets[0].id, {
+    if ((direction === 'left' || direction === 'right') && controlling.vyaw !== 0) {
+      feathers.service('assets').patch(controlling.id, {
         vyaw: 0
       });
     }
 
-    if (direction === 'forward' || direction === 'back' && assets[0].vpitch !== 0) {
-      feathers.service('assets').patch(assets[0].id, {
+    if ((direction === 'forward' || direction === 'back') && controlling.vpitch !== 0) {
+      feathers.service('assets').patch(controlling.id, {
         vpitch: 0
+      });
+    }
+
+    if ((direction === 'counterclockwise' || direction === 'clockwise') && controlling.vroll !== 0) {
+      feathers.service('assets').patch(controlling.id, {
+        vroll: 0
       });
     }
   }
