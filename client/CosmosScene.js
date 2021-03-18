@@ -17,6 +17,8 @@ var aspect = width / height;
 var textureLoader = new TextureLoader();
 var objLoader = new OBJLoader();
 
+var assets = {};
+
 init();
 
 function init() {
@@ -88,6 +90,9 @@ export function addAsset(asset) {
         }
       });
 
+      asset.object = object;
+      assets[asset.id] = asset;
+
       scene.add(object);
       render();
     });
@@ -95,7 +100,18 @@ export function addAsset(asset) {
 }
 
 export function updateAsset(asset) {
-  console.log('Updating asset', asset);
+  const existing = assets[asset.id];
+  if (existing) {
+    existing.object.position.x = asset.x;
+    existing.object.position.y = asset.y;
+    existing.object.position.z = asset.z;
+
+    existing.object.rotation.x = asset.roll;
+    existing.object.rotation.y = asset.pitch;
+    existing.object.rotation.z = asset.yaw;
+  } else {
+    console.error('No asset found with with the id ' + asset.id);
+  }
 }
 
 
