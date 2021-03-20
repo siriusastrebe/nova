@@ -9,6 +9,7 @@ const configuration   = require('@feathersjs/configuration');
 const feathersKnex    = require('feathers-knex');
 const authService     = require('./feathers/auth');
 const accountsService = require('./feathers/services/accounts/accounts.service.js');
+const Three           = require('three'); 
 const knex            = require('knex')({
   client: 'pg',
   connection: {
@@ -37,6 +38,35 @@ app.configure(authService);
 
 // ---- Feathers Services ----
 accountsService(app, knex);
+class UserInputsService {
+  constructor() {
+    this.users = {}
+  }
+  async create(data, params) {
+    const userInput = {
+      id: data.id,
+      forward: false,
+      back: false,
+      left: false,
+      right: false,
+      clockwise: false,
+      counterclockwise: false,
+    }
+    this.users[data.id] = userInput;
+  }
+  async patch(id, params, c) {
+    // Ignore user provided ID, use socket id instead
+    const socketId = c.connection.socketId;
+    const userInput = this.users[socketId];
+
+    for (let key in params) {
+      const value = params[key];
+      if (key in userInput) {
+        userInput[key] = value;
+      }
+    }
+  }
+}
 
 class AssetsService {
   constructor() {
@@ -51,15 +81,17 @@ class AssetsService {
       x: data.x,
       y: data.y,
       z: data.z,
-      roll: data.roll,
-      yaw: data.yaw,
-      pitch: data.pitch,
       vx: data.vx,
       vy: data.vy,
       vz: data.vz,
-      vroll: data.vroll,
-      vpitch: data.vpitch,
-      vyaw: data.vyaw,
+      w: data.w,
+      i: data.i,
+      j: data.j,
+      k: data.k,
+      vw: data.vw,
+      vi: data.vi,
+      vj: data.vj,
+      vk: data.vk,
       socketId: data.socketId
     }
 
@@ -75,7 +107,7 @@ class AssetsService {
     return this.assets[id];
   }
   remove(id, params) {
-   delete this.assets[id]
+   delete this.assets[id];
   }
   patch(id, params) {
     const asset = this.assets[id];
@@ -92,6 +124,7 @@ class AssetsService {
   }
 }
 app.use('/assets', new AssetsService());
+app.use('/userInputs', new UserInputsService());
 
 app.use('/public', express.static(path.join(__dirname, 'public')));
 app.use(express.static('dist'));
@@ -108,27 +141,31 @@ app.get('*', async (req, res) => {
 app.on('connection', (connection, b) => {
   app.channel('everybody').join(connection);
 
+  app.service('userInputs').create({
+    id: connection.socketId,
+  });
   app.service('assets').create({
     model: 'shuttle',
     x: Math.random() * 100,
     y: Math.random() * 100,
     z: Math.random() * 100,
-    roll: 0,
-    pitch: 0,
-    yaw: 0,
     vx: 0,
     vy: 0,
     vz: 0,
-    vroll: 0,
-    vpitch: 0,
-    vyaw: 0,
+    w: 0,
+    i: 0,
+    j: 0,
+    k: 0,
+    vw: 0,
+    vi: 0,
+    vj: 0,
+    vk: 0,
     socketId: connection.socketId
   }).then(asset => console.log('Created asset ', asset));
 });
 app.service('assets').publish((data, hook) => {
   return app.channel('everybody');
 });
-
 
 // ---- Game loop ----
 let t = new Date();
@@ -146,7 +183,7 @@ const gameLoop = setInterval(async () => {
       roll: asset.roll + asset.vroll * dt,
     }
 
-    app.service('assets').patch(asset.id, changes);
+    //app.service('assets').patch(asset.id, changes);
   });
 
   t = new Date();

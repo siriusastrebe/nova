@@ -1,4 +1,4 @@
-import { TextureLoader, PlaneGeometry, Scene, PerspectiveCamera, Vector3, WebGLRenderer, PCFSoftShadowMap, SphereBufferGeometry, Mesh, MeshLambertMaterial, SpotLight, LineBasicMaterial, AmbientLight, Line, MeshBasicMaterial, MeshPhongMaterial, BufferGeometry, DoubleSide } from 'three';
+import { TextureLoader, PlaneGeometry, Scene, PerspectiveCamera, Vector3, Matrix4, WebGLRenderer, PCFSoftShadowMap, SphereBufferGeometry, Mesh, MeshLambertMaterial, SpotLight, LineBasicMaterial, AmbientLight, Line, MeshBasicMaterial, MeshPhongMaterial, BufferGeometry, DoubleSide, Euler, Quaternion} from 'three';
 import { Lensflare, LensflareElement } from "three/examples/jsm/objects/Lensflare";
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
@@ -78,6 +78,7 @@ export function renderSpace() {
 }
 
 export function addAsset(asset) {
+console.log('Adding asset', asset);
   let model;
 
   objLoader.load('/public/SpaceFighter01/SpaceFighter01.obj', (object) => {
@@ -89,6 +90,8 @@ export function addAsset(asset) {
           child.material = material;
         }
       });
+
+      object.defaultUp = new Vector3(1, 0, 0); // This makes it face forward
 
       asset.object = object;
       assets[asset.id] = asset;
@@ -102,13 +105,26 @@ export function addAsset(asset) {
 export function updateAsset(asset) {
   const existing = assets[asset.id];
   if (existing) {
+    console.log('Updating', asset);
     existing.object.position.x = asset.x;
     existing.object.position.y = asset.y;
     existing.object.position.z = asset.z;
 
-    existing.object.rotation.x = asset.pitch;
-    existing.object.rotation.y = asset.yaw;
-    existing.object.rotation.z = asset.roll;
+    const orientation = new Quaternion();
+    orientation.setFromAxisAngle(new Vector3(0, 1, 0), asset.yaw);
+
+    const pitch = new Quaternion();
+    pitch.setFromAxisAngle(new Vector3(1, 0, 0), asset.pitch);
+    orientation.multiply(pitch);
+
+    const roll = new Quaternion();
+    roll.setFromAxisAngle(new Vector3(0, 0, 1), asset.roll);
+    orientation.multiply(roll);
+
+    existing.object.setRotationFromQuaternion(orientation);
+
+    //const eulerAngles = new Euler(asset.yaw, asset.pitch, asset.roll, 'XYZ')
+    //existing.object.setRotationFromEuler(eulerAngles);
   } else {
     console.error('No asset found with with the id ' + asset.id);
   }
@@ -303,6 +319,26 @@ function equitorialToCartesian(dec, ra) {
   pos.y = Math.sin(decR) * 100000;
   return pos;
 }
+
+
+// Rotate an object around an axis in object space
+//var rotationMatrix
+//function rotateAroundObjectAxis( object, axis, radians ) {
+//    rotationMatrix = new Matrix4();
+//    rotationMatrix.makeRotationAxis( axis.normalize(), radians );
+//    object.matrix.multiplySelf( rotationMatrix );                       // post-multiply
+//    object.rotation.setEulerFromRotationMatrix(object.matrix, object.order);
+//}
+
+// Rotate an object around an axis in world space (the axis passes through the object's position) 
+//var rotWorldMatrix;      
+//function rotateAroundWorldAxis( object, axis, radians ) {
+//    rotWorldMatrix = new Matrix4();
+//    rotWorldMatrix.makeRotationAxis(axis.normalize(), radians);
+//    rotWorldMatrix.multiplySelf(object.matrix);        // pre-multiply
+//    object.matrix = rotWorldMatrix;
+//    object.rotation.setEulerFromRotationMatrix(object.matrix, object.order);
+//} 
 
 /*
 function onClick(event) {

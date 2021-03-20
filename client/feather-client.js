@@ -64,83 +64,46 @@ export default function initializeFeathers(addAsset, updateAsset) {
 
   document.onkeydown = function (e) {
     if (controlling) {
-      const key = e.key.toLowerCase();
-      let direction;
-      if (key === 'w' || key === 'arrowup') {
-        direction = 'forward';
-      } else if (key === 'a' || key === 'arrowleft') {
-        direction = 'left';
-      } else if (key === 's' || key === 'arrowdown') {
-        direction = 'back';
-      } else if (key === 'd' || key === 'arrowright') {
-        direction = 'right';
-      } else if (key === 'q') {
-        direction = 'counterclockwise';
-      } else if (key === 'e') {
-        direction = 'clockwise';
-      }
+      const action = keyToAction(e);
 
-      if (direction === 'left' && controlling.vyaw !== 1) {
-        feathers.service('assets').patch(controlling.id, {
-          vyaw: 1
-        });
-      } else if (direction === 'right' && controlling.vyaw !== -1) {
-        feathers.service('assets').patch(controlling.id, {
-          vyaw: -1
-        });
-      } else if (direction === 'forward' && controlling.vpitch !== 1) {
-        feathers.service('assets').patch(controlling.id, {
-          vpitch: 1
-        });
-      } else if (direction === 'back' && controlling.vpitch !== -1) {
-        feathers.service('assets').patch(controlling.id, {
-          vpitch: -1
-        });
-      } else if (direction === 'counterclockwise' && controlling.vroll !== -1) {
-        feathers.service('assets').patch(controlling.id, {
-          vroll: -1
-        });
-      } else if (direction === 'clockwise' && controlling.vroll !== -1) {
-        feathers.service('assets').patch(controlling.id, {
-          vroll: 1
-        });
+      if (action) {
+        const params = {
+          [action]: true
+        }
+        feathers.service('userInputs').patch(null, params);
       }
     }
   }
 
   document.onkeyup = function (e) {
-    const key = e.key.toLowerCase();
-    let direction;
-    if (key === 'w' || key === 'arrowup') {
-      direction = 'forward';
-    } else if (key === 'a' || key === 'arrowleft') {
-      direction = 'left';
-    } else if (key === 's' || key === 'arrowdown') {
-      direction = 'back';
-    } else if (key === 'd' || key === 'arrowright') {
-      direction = 'right';
-    } else if (key === 'q') {
-      direction = 'counterclockwise';
-    } else if (key === 'e') {
-      direction = 'clockwise';
-    }
+    if (controlling) {
+      const action = keyToAction(e);
 
-    if ((direction === 'left' || direction === 'right') && controlling.vyaw !== 0) {
-      feathers.service('assets').patch(controlling.id, {
-        vyaw: 0
-      });
-    }
-
-    if ((direction === 'forward' || direction === 'back') && controlling.vpitch !== 0) {
-      feathers.service('assets').patch(controlling.id, {
-        vpitch: 0
-      });
-    }
-
-    if ((direction === 'counterclockwise' || direction === 'clockwise') && controlling.vroll !== 0) {
-      feathers.service('assets').patch(controlling.id, {
-        vroll: 0
-      });
+      if (action) {
+        const params = {
+          [action]: false
+        }
+        feathers.service('userInputs').patch(null, params);
+      }
     }
   }
+}
+
+function keyToAction(e) {
+  const key = e.key.toLowerCase();
+  let action;
+  if (key === 'w' || key === 'arrowup') {
+    action = 'forward';
+  } else if (key === 'a' || key === 'arrowleft') {
+    action = 'left';
+  } else if (key === 's' || key === 'arrowdown') {
+    action = 'back';
+  } else if (key === 'd' || key === 'arrowright') {
+    action = 'right';
+  } else if (key === 'q') {
+    action = 'counterclockwise';
+  } else if (key === 'e') {
+    action = 'clockwise';
+  }
+  return action;
 }
