@@ -33,6 +33,7 @@ export default function initializeFeathers(addAsset, updateAsset) {
   });
 
   feathers.service('assets').on('created', (asset) => {
+    console.log('Asset created', asset);
     addAsset(asset);
     assets.push(asset);
 
@@ -42,7 +43,7 @@ export default function initializeFeathers(addAsset, updateAsset) {
   });
 
   feathers.service('assets').on('updated', (asset, b) => {
-    console.log('Updated', asset, b);
+    console.log('Asset updated', asset, b);
     updateAsset(asset);
     const current = assets.find(a => a.id === asset.id)
     assets[assets.indexOf(current)] = asset;
@@ -53,6 +54,7 @@ export default function initializeFeathers(addAsset, updateAsset) {
   });
 
   feathers.service('assets').on('patched', (asset, b) => {
+    console.log('Asset patched', asset, b);
     updateAsset(asset, b);
     const current = assets.find(a => a.id === asset.id)
     assets[assets.indexOf(current)] = asset;
@@ -60,6 +62,12 @@ export default function initializeFeathers(addAsset, updateAsset) {
     if (asset.socketId === socket.id) {
       controlling = asset;
     }
+  });
+
+  feathers.service('assets').on('networktick', (assets) => {
+    assets.forEach((asset) =>  {
+      updateAsset(asset);
+    });
   });
 
   document.onkeydown = function (e) {

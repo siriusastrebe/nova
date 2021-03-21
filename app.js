@@ -42,6 +42,9 @@ class UserInputsService {
   constructor() {
     this.users = {}
   }
+  async find() {
+    return this.users;
+  }
   async create(data, params) {
     const userInput = {
       id: data.id,
@@ -72,6 +75,7 @@ class AssetsService {
   constructor() {
     this.assets = {}
     this.idcounter = 0
+    this.events = ['networktick'];
   }
   async create(data, params) {
     const id = this.idcounter;
@@ -152,16 +156,16 @@ app.on('connection', (connection, b) => {
     vx: 0,
     vy: 0,
     vz: 0,
-    w: 0,
+    w: 1,
     i: 0,
     j: 0,
     k: 0,
-    vw: 0,
+    vw: 1,
     vi: 0,
     vj: 0,
     vk: 0,
     socketId: connection.socketId
-  }).then(asset => console.log('Created asset ', asset));
+  }).then(asset => console.log('New socket with id: ', connection.socketId));
 });
 app.service('assets').publish((data, hook) => {
   return app.channel('everybody');
@@ -170,21 +174,56 @@ app.service('assets').publish((data, hook) => {
 // ---- Game loop ----
 let t = new Date();
 const gameLoop = setInterval(async () => {
-  const assets = await app.service('assets').find()
+  const assets = await app.service('assets').find();
+  const userInputs = await app.service('userInputs').find();
 
   let dt = (new Date() - t) / 1000;
+
+  const allChanges = [];
+
   assets.forEach((asset, i) => {
+    const userInput = userInputs[asset.socketId];
+    let torque = new Three.Quaternion().identity();
+    if (userInput) {
+      torque = new Three.Quaternion().setFromEuler(new Three.Euler(userInput.counterclockwise - userInput.clockwise, userInput.left - userInput.right, userInput.forward - userInput.back, 'XYZ'))
+    }
+
+    const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
+
+    torque.multiply(orientation);
+    torque.normalize();
+
+    orientation.rotateTowards(torque, dt);
+    orientation.normalize();
+
+    asset.w = orientation._w;
+    asset.i = orientation._x;
+    asset.j = orientation._y;
+    asset.k = orientation._z;
+    asset.vw = torque._w;
+    asset.vi = torque._x;
+    asset.vj = torque._y;
+    asset.vk = torque._z;
+
     const changes = {
+      id: asset.id,
       x: asset.x + asset.vx * dt,
       y: asset.y + asset.vy * dt,
       z: asset.z + asset.vz * dt,
-      yaw: asset.yaw + asset.vyaw * dt,
-      pitch: asset.pitch + asset.vpitch * dt,
-      roll: asset.roll + asset.vroll * dt,
+      w: asset.w,
+      i: asset.i,
+      j: asset.j,
+      k: asset.k,
+      vw: asset.vw,
+      vi: asset.vi,
+      vk: asset.vk,
+      vj: asset.vj,
     }
 
-    //app.service('assets').patch(asset.id, changes);
+    allChanges.push(changes);
   });
+
+  app.service('assets').emit('networktick', allChanges);
 
   t = new Date();
 }, 100);

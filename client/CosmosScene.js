@@ -109,22 +109,8 @@ export function updateAsset(asset) {
     existing.object.position.x = asset.x;
     existing.object.position.y = asset.y;
     existing.object.position.z = asset.z;
-
-    const orientation = new Quaternion();
-    orientation.setFromAxisAngle(new Vector3(0, 1, 0), asset.yaw);
-
-    const pitch = new Quaternion();
-    pitch.setFromAxisAngle(new Vector3(1, 0, 0), asset.pitch);
-    orientation.multiply(pitch);
-
-    const roll = new Quaternion();
-    roll.setFromAxisAngle(new Vector3(0, 0, 1), asset.roll);
-    orientation.multiply(roll);
-
+    const orientation = new Quaternion(asset.w, asset.i, asset.j, asset.k);
     existing.object.setRotationFromQuaternion(orientation);
-
-    //const eulerAngles = new Euler(asset.yaw, asset.pitch, asset.roll, 'XYZ')
-    //existing.object.setRotationFromEuler(eulerAngles);
   } else {
     console.error('No asset found with with the id ' + asset.id);
   }
