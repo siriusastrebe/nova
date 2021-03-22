@@ -5,7 +5,7 @@ import socketio from '@feathersjs/socketio-client'
 import io from 'socket.io-client'
 
 // ---- Feathers ----
-export default function initializeFeathers(addAsset, updateAsset) {
+export default function initializeFeathers(addAsset, updateAsset, setControlledAsset) {
 
   const socket = io(document.domain + ':80');
   const feathers = createFeathersClient();
@@ -28,6 +28,7 @@ export default function initializeFeathers(addAsset, updateAsset) {
 
       if (asset.socketId === socket.id) {
         controlling = asset;
+        setControlledAsset(controlling);
       }
     });
   });
@@ -39,6 +40,7 @@ export default function initializeFeathers(addAsset, updateAsset) {
 
     if (asset.socketId === socket.id) {
       controlling = asset;
+      setControlledAsset(controlling);
     }
   });
 
@@ -50,6 +52,7 @@ export default function initializeFeathers(addAsset, updateAsset) {
 
     if (asset.socketId === socket.id) {
       controlling = asset;
+      setControlledAsset(controlling);
     }
   });
 
@@ -61,6 +64,7 @@ export default function initializeFeathers(addAsset, updateAsset) {
 
     if (asset.socketId === socket.id) {
       controlling = asset;
+      setControlledAsset(controlling);
     }
   });
 
@@ -112,6 +116,9 @@ function keyToAction(e) {
     action = 'counterclockwise';
   } else if (key === 'e') {
     action = 'clockwise';
+  } else if (key === ' ') {
+    action = 'space';
   }
+
   return action;
 }

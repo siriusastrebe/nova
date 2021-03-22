@@ -54,6 +54,7 @@ class UserInputsService {
       right: false,
       clockwise: false,
       counterclockwise: false,
+      space: false,
     }
     this.users[data.id] = userInput;
   }
@@ -81,7 +82,8 @@ class AssetsService {
     const id = this.idcounter;
     const asset = {
       id: id,
-      model: data.model,
+      obj: data.obj,
+      texture: data.texture,
       x: data.x,
       y: data.y,
       z: data.z,
@@ -148,8 +150,12 @@ app.on('connection', (connection, b) => {
   app.service('userInputs').create({
     id: connection.socketId,
   });
+
+  const ship = randomSpaceship();
+
   app.service('assets').create({
-    model: 'shuttle',
+    texture: ship.texture,
+    obj: ship.obj,
     x: Math.random() * 100,
     y: Math.random() * 100,
     z: Math.random() * 100,
@@ -182,24 +188,36 @@ const gameLoop = setInterval(async () => {
   const allChanges = [];
 
   assets.forEach((asset, i) => {
+    const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
     const userInput = userInputs[asset.socketId];
     let torque = new Three.Quaternion().identity();
+    let force = new Three.Vector3(0, 0, 0);
+
     if (userInput) {
-      torque = new Three.Quaternion().setFromEuler(new Three.Euler(userInput.counterclockwise - userInput.clockwise, userInput.left - userInput.right, userInput.forward - userInput.back, 'XYZ'))
+      torque = new Three.Quaternion().setFromEuler(new Three.Euler(userInput.forward - userInput.back, userInput.left - userInput.right, userInput.clockwise - userInput.counterclockwise, 'XYZ'));
+      force = new Three.Vector3(0, 0, userInput.space ? 1 : 0);
+      force.applyQuaternion(orientation);
     }
 
-    const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
-
-    torque.multiply(orientation);
-    torque.normalize();
-
-    orientation.rotateTowards(torque, dt);
+    const targetOrientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
+    targetOrientation.multiply(torque);
+    targetOrientation.normalize();
+    orientation.rotateTowards(targetOrientation, dt);
     orientation.normalize();
+
+    asset.vx = force.x * 100;
+    asset.vy = force.y * 100;
+    asset.vz = force.z * 100;
+
+    asset.x = asset.x + asset.vx * dt;
+    asset.y = asset.y + asset.vy * dt;
+    asset.z = asset.z + asset.vz * dt;
 
     asset.w = orientation._w;
     asset.i = orientation._x;
     asset.j = orientation._y;
     asset.k = orientation._z;
+
     asset.vw = torque._w;
     asset.vi = torque._x;
     asset.vj = torque._y;
@@ -207,9 +225,9 @@ const gameLoop = setInterval(async () => {
 
     const changes = {
       id: asset.id,
-      x: asset.x + asset.vx * dt,
-      y: asset.y + asset.vy * dt,
-      z: asset.z + asset.vz * dt,
+      x: asset.x,
+      y: asset.y,
+      z: asset.z,
       w: asset.w,
       i: asset.i,
       j: asset.j,
@@ -231,3 +249,26 @@ const gameLoop = setInterval(async () => {
 
 // ---- Running the app ----
 app.listen(port, () => console.log(`Nova running on http://0.0.0.0:${port}`))
+
+
+// ---- Helper functions ----
+function randomSpaceship() {
+  const options = [{
+    obj: '/public/SpaceFighter01/SpaceFighter01.obj',
+    texture: '/public/SpaceFighter01/F01_512.jpg'
+  }, {
+    obj: '/public/SpaceFighter02/SpaceFighter02.obj',
+    texture: '/public/SpaceFighter02/F02_512.jpg'
+  }, {
+    obj: '/public/SpaceFighter03/SpaceFighter03.obj',
+    texture: '/public/SpaceFighter03/F03_512.jpg'
+  }, {
+    obj: '/public/Shuttle01/Shuttle01.obj',
+    texture: '/public/Shuttle01/S01_512.jpg'
+  }, {
+    obj: '/public/Shuttle02/Shuttle02.obj',
+    texture: '/public/Shuttle02/S02_512.jpg'
+  }];
+
+  return options[Math.floor(Math.random() * options.length)];
+}

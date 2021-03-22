@@ -1,4 +1,4 @@
-import { TextureLoader, PlaneGeometry, Scene, PerspectiveCamera, Vector3, Matrix4, WebGLRenderer, PCFSoftShadowMap, SphereBufferGeometry, Mesh, MeshLambertMaterial, SpotLight, LineBasicMaterial, AmbientLight, Line, MeshBasicMaterial, MeshPhongMaterial, BufferGeometry, DoubleSide, Euler, Quaternion} from 'three';
+import { TextureLoader, PlaneGeometry, Scene, PerspectiveCamera, Vector3, Matrix4, WebGLRenderer, PCFSoftShadowMap, SphereBufferGeometry, Mesh, MeshLambertMaterial, SpotLight, LineBasicMaterial, AmbientLight, Line, MeshBasicMaterial, MeshPhongMaterial, BufferGeometry, DoubleSide, Euler, Quaternion, AxesHelper, GridHelper } from 'three';
 import { Lensflare, LensflareElement } from "three/examples/jsm/objects/Lensflare";
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
@@ -18,6 +18,7 @@ var textureLoader = new TextureLoader();
 var objLoader = new OBJLoader();
 
 var assets = {};
+var controlledAsset;
 
 init();
 
@@ -40,6 +41,12 @@ function init() {
   createMoon();
   createStars();
 
+  const gridHelper = new GridHelper( 4000, 40, 0x0000ff, 0x808080 );
+  sceneStars.add(gridHelper);
+
+  let worldAxis = new AxesHelper(2000);
+  sceneStars.add(worldAxis);
+
   render();
   requestAnimationFrame(animate);
 
@@ -59,6 +66,20 @@ function render() {
   // Trick to allow multiple scenes on a single renderer
   renderer.autoClear = false;
   renderer.clear();
+
+  if (controlledAsset) {
+    const distance = 1022;
+    const orientation = new Quaternion(controlledAsset.i, controlledAsset.j, controlledAsset.k, controlledAsset.w);
+    const vectorOrientation = new Vector3(0, 0, 1).applyQuaternion(orientation);
+
+    console.log(camera.up);
+
+    camera.position.x = controlledAsset.x + vectorOrientation.x * distance;
+    camera.position.y = controlledAsset.y + vectorOrientation.y * distance;
+    camera.position.z = controlledAsset.z + vectorOrientation.z * distance;
+
+    camera.setRotationFromQuaternion(orientation);
+  }
 
   renderer.render(sceneStars, camera);
   renderer.render(scene, camera);
@@ -81,8 +102,10 @@ export function addAsset(asset) {
 console.log('Adding asset', asset);
   let model;
 
-  objLoader.load('/public/SpaceFighter01/SpaceFighter01.obj', (object) => {
-    textureLoader.load('/public/SpaceFighter01/F01_512.jpg', (texture) => {
+  assets[asset.id] = asset;
+
+  objLoader.load(asset.obj, (object) => {
+    textureLoader.load(asset.texture, (texture) => {
       let material = new MeshBasicMaterial({map: texture});
 
       object.traverse(function (child) {
@@ -91,10 +114,7 @@ console.log('Adding asset', asset);
         }
       });
 
-      object.defaultUp = new Vector3(1, 0, 0); // This makes it face forward
-
       asset.object = object;
-      assets[asset.id] = asset;
 
       scene.add(object);
       render();
@@ -105,14 +125,30 @@ console.log('Adding asset', asset);
 export function updateAsset(asset) {
   const existing = assets[asset.id];
   if (existing) {
-    console.log('Updating', asset);
-    existing.object.position.x = asset.x;
-    existing.object.position.y = asset.y;
-    existing.object.position.z = asset.z;
-    const orientation = new Quaternion(asset.w, asset.i, asset.j, asset.k);
-    existing.object.setRotationFromQuaternion(orientation);
+    if (existing.object) {
+      existing.object.position.x = asset.x;
+      existing.object.position.y = asset.y;
+      existing.object.position.z = asset.z;
+      const orientation = new Quaternion(asset.i, asset.j, asset.k, asset.w);
+      existing.object.setRotationFromQuaternion(orientation);
+
+      for (let key in asset) {
+        if (existing[key] !== asset[key]) {
+          existing[key] = asset[key];
+        }
+      }
+    }
   } else {
-    console.error('No asset found with with the id ' + asset.id);
+    console.error('Unable to update asset, no asset found with with the id ' + asset.id);
+  }
+}
+
+export function setControlledAsset(asset) {
+  const existing = assets[asset.id];
+  if (existing) {
+    controlledAsset = existing;
+  } else {
+    console.error('Unable to setControlledAsset, no asset found with with the id ' + asset.id);
   }
 }
 
@@ -219,22 +255,6 @@ function createStars() {
   }
 }
 
-//function createSaturn() {
-//  var saturn = gltf.scene;
-//  saturn.scale.set(0.1, 0.1, 0.1);
-//  saturn.position.z = 250;
-//  saturn.position.y = -20;
-//  saturn.position.x = -44;
-//  saturn.rotation.x = -0.34;
-//  saturn.children[0].receiveShadow = true;
-//  saturn.children[1].receiveShadow = true;
-//  saturn.children[2].castShadow = true;
-//
-//  scene.add(saturn)
-//
-//  createSun(saturn)
-//}
-
 function randomStarColor() {
   return 'rgb('+randomRGB()+','+randomRGB()+','+randomRGB()+')';
 
@@ -285,7 +305,6 @@ function approximateStarColor(bv) {
 
 
 
-
 // ----------------------------------------------------------------
 // Helper functions
 // ----------------------------------------------------------------
@@ -305,44 +324,3 @@ function equitorialToCartesian(dec, ra) {
   pos.y = Math.sin(decR) * 100000;
   return pos;
 }
-
-
-// Rotate an object around an axis in object space
-//var rotationMatrix
-//function rotateAroundObjectAxis( object, axis, radians ) {
-//    rotationMatrix = new Matrix4();
-//    rotationMatrix.makeRotationAxis( axis.normalize(), radians );
-//    object.matrix.multiplySelf( rotationMatrix );                       // post-multiply
-//    object.rotation.setEulerFromRotationMatrix(object.matrix, object.order);
-//}
-
-// Rotate an object around an axis in world space (the axis passes through the object's position) 
-//var rotWorldMatrix;      
-//function rotateAroundWorldAxis( object, axis, radians ) {
-//    rotWorldMatrix = new Matrix4();
-//    rotWorldMatrix.makeRotationAxis(axis.normalize(), radians);
-//    rotWorldMatrix.multiplySelf(object.matrix);        // pre-multiply
-//    object.matrix = rotWorldMatrix;
-//    object.rotation.setEulerFromRotationMatrix(object.matrix, object.order);
-//} 
-
-/*
-function onClick(event) {
-  var canvas = renderer.domElement
-  var bounds = canvas.getBoundingClientRect();
-  var mouse = {}
-  mouse.x = ( (event.clientX - bounds.left) / canvas.clientWidth ) * 2 - 1;
-  mouse.y = - ( (event.clientY - bounds.top) / canvas.clientHeight ) * 2 + 1;
-  raycaster.setFromCamera( mouse, camera );
-  var intersects = raycaster.intersectObjects(sceneStars.children, true);
-  if (intersects.length > 0) {
-    for (let i=0; i<intersects.length; i++) {
-      var intersect = intersects[i];
-      if (intersect.object && intersect.object.userData && intersect.object.userData.starData) {
-        var starData = intersect.object.userData.starData;
-        console.log('"' + starData.Dec + '", "' + starData.RA + '"');
-      }
-    }
-  }
-}
-*/
