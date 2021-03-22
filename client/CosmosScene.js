@@ -70,15 +70,17 @@ function render() {
   if (controlledAsset) {
     const distance = 1022;
     const orientation = new Quaternion(controlledAsset.i, controlledAsset.j, controlledAsset.k, controlledAsset.w);
-    const vectorOrientation = new Vector3(0, 0, 1).applyQuaternion(orientation);
 
-    console.log(camera.up);
+    // For some reason the camera is flipped 180° and mirrored
+    const opposite = new Quaternion(1, 0, 0, 0).premultiply(orientation).multiply(new Quaternion(0, 0, 1, 0)).normalize();
+
+    const vectorOrientation = new Vector3(0, 0, 1).applyQuaternion(opposite);
 
     camera.position.x = controlledAsset.x + vectorOrientation.x * distance;
     camera.position.y = controlledAsset.y + vectorOrientation.y * distance;
     camera.position.z = controlledAsset.z + vectorOrientation.z * distance;
 
-    camera.setRotationFromQuaternion(orientation);
+    camera.setRotationFromQuaternion(opposite);
   }
 
   renderer.render(sceneStars, camera);
