@@ -13,6 +13,7 @@ var stars = [];
 var width = window.innerWidth - 30;
 var height = windowHeight();
 var aspect = width / height;
+let cameraDistance = 500;
 
 var textureLoader = new TextureLoader();
 var objLoader = new OBJLoader();
@@ -30,7 +31,7 @@ function init() {
   const near = 0.1;
   const far = 200000;
   camera = new PerspectiveCamera(fov, aspect, near, far);
-  camera.position.set(0, 0, 800);
+  camera.position.set(0, 0, 0);
 
   renderer = new WebGLRenderer( { antialias: true } );
   renderer.shadowMap.enabled = true;
@@ -62,27 +63,69 @@ function onWindowResize(){
   camera.updateProjectionMatrix();
   renderer.setSize( window.innerWidth, windowHeight() );
 }
+
+let t = new Date();
 function render() {
   // Trick to allow multiple scenes on a single renderer
   renderer.autoClear = false;
   renderer.clear();
 
+  let dt = (new Date() - t) / 1000;
+
+  // Camera fixing
   if (controlledAsset) {
-    const distance = 1022;
     const orientation = new Quaternion(controlledAsset.i, controlledAsset.j, controlledAsset.k, controlledAsset.w);
 
     // For some reason the camera is flipped 180° and mirrored
     const opposite = new Quaternion(1, 0, 0, 0).premultiply(orientation).multiply(new Quaternion(0, 0, 1, 0)).normalize();
 
+    // Adjust so we're kinda looking down on the ship
+    const downwardsAdjustment = new Quaternion().setFromEuler(new Euler(-0.3, 0, 0));
+    opposite.multiply(downwardsAdjustment);
+
     const vectorOrientation = new Vector3(0, 0, 1).applyQuaternion(opposite);
 
-    camera.position.x = controlledAsset.x + vectorOrientation.x * distance;
-    camera.position.y = controlledAsset.y + vectorOrientation.y * distance;
-    camera.position.z = controlledAsset.z + vectorOrientation.z * distance;
+    camera.position.x = controlledAsset.x + vectorOrientation.x * cameraDistance;
+    camera.position.y = controlledAsset.y + vectorOrientation.y * cameraDistance;
+    camera.position.z = controlledAsset.z + vectorOrientation.z * cameraDistance;
 
     camera.setRotationFromQuaternion(opposite);
   }
 
+  // Update each asset's position and rotation by dt, the fraction of a second that has elapsed since last render()
+
+  Object.keys(assets).forEach((id) => {
+    const asset = assets[id];
+
+    asset.x = asset.x + asset.vx * dt;
+    asset.y = asset.y + asset.vy * dt;
+    asset.z = asset.z + asset.vz * dt;
+
+    const orientation = new Quaternion(asset.i, asset.j, asset.k, asset.w);
+    const rotationalInertia  = new Quaternion(asset.vi, asset.vj, asset.vk, asset.vw);
+
+    const targetOrientation = new Quaternion(asset.i, asset.j, asset.k, asset.w);
+    targetOrientation.multiply(rotationalInertia);
+    targetOrientation.normalize();
+
+    orientation.rotateTowards(targetOrientation, 0.01);
+    orientation.normalize();
+
+    //asset.i = orientation._i;
+    //asset.j = orientation._j;
+    //asset.k = orientation._k;
+    //asset.w = orientation._w;
+
+    if (asset.object) {
+      asset.object.position.x = asset.x;
+      asset.object.position.y = asset.y;
+      asset.object.position.z = asset.z;
+
+      //asset.object.setRotationFromQuaternion(orientation);
+    }
+  });
+
+  
   renderer.render(sceneStars, camera);
   renderer.render(scene, camera);
 }

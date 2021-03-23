@@ -205,9 +205,10 @@ const gameLoop = setInterval(async () => {
     orientation.rotateTowards(targetOrientation, dt);
     orientation.normalize();
 
-    asset.vx = force.x * 100;
-    asset.vy = force.y * 100;
-    asset.vz = force.z * 100;
+    // TODO: Use pythagorean distance
+    asset.vx = asset.vx * 0.9 + force.x * 200;
+    asset.vy = asset.vy * 0.9 + force.y * 200;
+    asset.vz = asset.vz * 0.9 + force.z * 200;
 
     asset.x = asset.x + asset.vx * dt;
     asset.y = asset.y + asset.vy * dt;
@@ -228,6 +229,9 @@ const gameLoop = setInterval(async () => {
       x: asset.x,
       y: asset.y,
       z: asset.z,
+      vx: asset.vx,
+      vy: asset.vy,
+      vz: asset.vz,
       w: asset.w,
       i: asset.i,
       j: asset.j,
