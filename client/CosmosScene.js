@@ -13,7 +13,7 @@ var stars = [];
 var width = window.innerWidth - 30;
 var height = windowHeight();
 var aspect = width / height;
-let cameraDistance = 500;
+let cameraDistance = 800;
 
 var textureLoader = new TextureLoader();
 var objLoader = new OBJLoader();
@@ -64,7 +64,9 @@ function onWindowResize(){
   renderer.setSize( window.innerWidth, windowHeight() );
 }
 
+
 let t = new Date();
+
 function render() {
   // Trick to allow multiple scenes on a single renderer
   renderer.autoClear = false;
@@ -72,28 +74,7 @@ function render() {
 
   let dt = (new Date() - t) / 1000;
 
-  // Camera fixing
-  if (controlledAsset) {
-    const orientation = new Quaternion(controlledAsset.i, controlledAsset.j, controlledAsset.k, controlledAsset.w);
-
-    // For some reason the camera is flipped 180° and mirrored
-    const opposite = new Quaternion(1, 0, 0, 0).premultiply(orientation).multiply(new Quaternion(0, 0, 1, 0)).normalize();
-
-    // Adjust so we're kinda looking down on the ship
-    const downwardsAdjustment = new Quaternion().setFromEuler(new Euler(-0.3, 0, 0));
-    opposite.multiply(downwardsAdjustment);
-
-    const vectorOrientation = new Vector3(0, 0, 1).applyQuaternion(opposite);
-
-    camera.position.x = controlledAsset.x + vectorOrientation.x * cameraDistance;
-    camera.position.y = controlledAsset.y + vectorOrientation.y * cameraDistance;
-    camera.position.z = controlledAsset.z + vectorOrientation.z * cameraDistance;
-
-    camera.setRotationFromQuaternion(opposite);
-  }
-
   // Update each asset's position and rotation by dt, the fraction of a second that has elapsed since last render()
-
   Object.keys(assets).forEach((id) => {
     const asset = assets[id];
 
@@ -108,24 +89,47 @@ function render() {
     targetOrientation.multiply(rotationalInertia);
     targetOrientation.normalize();
 
-    orientation.rotateTowards(targetOrientation, 0.01);
+    orientation.rotateTowards(targetOrientation, dt);
     orientation.normalize();
 
-    //asset.i = orientation._i;
-    //asset.j = orientation._j;
-    //asset.k = orientation._k;
-    //asset.w = orientation._w;
+    asset.i = orientation._x;
+    asset.j = orientation._y;
+    asset.k = orientation._z;
+    asset.w = orientation._w;
 
     if (asset.object) {
       asset.object.position.x = asset.x;
       asset.object.position.y = asset.y;
       asset.object.position.z = asset.z;
 
-      //asset.object.setRotationFromQuaternion(orientation);
+      asset.object.setRotationFromQuaternion(orientation);
     }
+
+    t = new Date();
   });
 
-  
+  // Camera fixing
+  if (controlledAsset) {
+    const orientation = new Quaternion(controlledAsset.i, controlledAsset.j, controlledAsset.k, controlledAsset.w);
+
+    // For some reason the camera is flipped 180° and mirrored
+    const opposite = new Quaternion(1, 0, 0, 0).premultiply(orientation).multiply(new Quaternion(0, 0, 1, 0)).normalize();
+
+    // Adjust so we're kinda looking down on the ship
+    const downwardsAdjustment = new Quaternion().setFromEuler(new Euler(-0.6, 0, 0));
+    const upwardsAdjustment = new Quaternion().setFromEuler(new Euler(0.2, 0, 0));
+    opposite.multiply(downwardsAdjustment);
+
+    const vectorOrientation = new Vector3(0, 0, 1).applyQuaternion(opposite);
+
+    camera.position.x = controlledAsset.x + vectorOrientation.x * cameraDistance;
+    camera.position.y = controlledAsset.y + vectorOrientation.y * cameraDistance;
+    camera.position.z = controlledAsset.z + vectorOrientation.z * cameraDistance;
+
+    opposite.multiply(upwardsAdjustment);
+    camera.setRotationFromQuaternion(opposite);
+  }
+
   renderer.render(sceneStars, camera);
   renderer.render(scene, camera);
 }
