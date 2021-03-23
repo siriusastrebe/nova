@@ -227,8 +227,8 @@ const gameLoop = setInterval(async () => {
     const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
     const userInput = userInputs[asset.socketId];
 
-    const torque = calculateUserInputTorque(userInput, orientation);
-    const force = calculateUserInputForce(userInput, orientation);
+    const torque = calculateUserInputTorque(userInput, asset);
+    const force = calculateUserInputForce(userInput, asset);
 
     const targetOrientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w).multiply(torque).normalize();
     orientation.rotateTowards(targetOrientation, dt);
