@@ -66,6 +66,7 @@ function onWindowResize(){
 
 
 let t = new Date();
+let averagedt = 0;
 
 function render() {
   // Trick to allow multiple scenes on a single renderer
@@ -73,6 +74,7 @@ function render() {
   renderer.clear();
 
   let dt = (new Date() - t) / 1000;
+  averagedt = (averagedt * 0.8) + (dt * (1-0.8));
 
   // Update each asset's position and rotation by dt, the fraction of a second that has elapsed since last render()
   Object.keys(assets).forEach((id) => {
@@ -117,7 +119,7 @@ function render() {
 
     // Adjust so we're kinda looking down on the ship
     const downwardsAdjustment = new Quaternion().setFromEuler(new Euler(-0.6, 0, 0));
-    const upwardsAdjustment = new Quaternion().setFromEuler(new Euler(0.2, 0, 0));
+    const upwardsAdjustment = new Quaternion().setFromEuler(new Euler(0.25, 0, 0));
     opposite.multiply(downwardsAdjustment);
 
     const vectorOrientation = new Vector3(0, 0, 1).applyQuaternion(opposite);

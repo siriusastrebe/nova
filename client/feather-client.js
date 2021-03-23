@@ -11,6 +11,7 @@ export default function initializeFeathers(addAsset, updateAsset, setControlledA
   const feathers = createFeathersClient();
   let assets = [];
   let controlling;
+  let userInputs = {};
 
   feathers.configure(socketio(socket));
   feathers.configure(
@@ -78,10 +79,13 @@ export default function initializeFeathers(addAsset, updateAsset, setControlledA
     if (controlling) {
       const action = keyToAction(e);
 
-      if (action) {
+      if (action && !userInputs[action]) {
+        userInputs[action] = true;
+
         const params = {
           [action]: true
         }
+
         feathers.service('userInputs').patch(null, params);
       }
     }
@@ -91,7 +95,9 @@ export default function initializeFeathers(addAsset, updateAsset, setControlledA
     if (controlling) {
       const action = keyToAction(e);
 
-      if (action) {
+      if (action && userInputs[action]) {
+        userInputs[action] = false;
+
         const params = {
           [action]: false
         }

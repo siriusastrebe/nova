@@ -19,6 +19,8 @@ const knex            = require('knex')({
   }
 });
 
+let t = new Date();
+
 // ---- Feathers App ----
 const app = express(feathers());                 // Creates an ExpressJS compatible Feathers application
 app.use(express.json());                         // Parse HTTP JSON bodies
@@ -69,13 +71,36 @@ class UserInputsService {
         userInput[key] = value;
       }
     }
+
+    const asset = await app.service('assets').getBySocket(socketId);
+    if (asset) {
+      const torque = calculateUserInputTorque(userInput, asset);
+      const force = calculateUserInputForce(userInput, asset);
+
+      // TODO: Use pythagorean distance
+      const patch = {
+        vx: asset.vx + force.x * 200,
+        vy: asset.vy + force.y * 200,
+        vz: asset.vz + force.z * 200,
+        vw: torque._w,
+        vi: torque._x,
+        vj: torque._y,
+        vk: torque._z
+      }
+console.log('patching asset', asset.id);
+
+      app.service('assets').patch(asset.id, patch);
+    }
+
+    return userInput;
   }
 }
 
 class AssetsService {
   constructor() {
-    this.assets = {}
-    this.idcounter = 0
+    this.assets = {};
+    this.assetsBySocket = {};
+    this.idcounter = 0;
     this.events = ['networktick'];
   }
   async create(data, params) {
@@ -103,19 +128,28 @@ class AssetsService {
 
     this.assets[id] = asset;
     this.idcounter = this.idcounter + 1;
+    if (data.socketId) {
+      this.assetsBySocket[data.socketId] = asset;
+    }
 
-    return Promise.resolve(asset);
+    return asset;
   }
-  find(params) {
-    return Promise.resolve(Object.keys(this.assets).map(id => this.assets[id]));
+  async find(params) {
+    return Object.keys(this.assets).map(id => this.assets[id]);
   }
-  get(id, params) {
+  async get(id, params) {
     return this.assets[id];
   }
-  remove(id, params) {
-   delete this.assets[id];
+  async remove(id, params) {
+   const asset = this.assets[id];
+   if (asset) {
+     if (asset.socketId && this.assetsBySocket[asset.socketId]) {
+       delete this.assetsBySocket[asset.socketId]
+     }
+     delete this.assets[id];
+    }
   }
-  patch(id, params) {
+  async patch(id, params) {
     const asset = this.assets[id];
     if (asset) {
       // TODO: Verify keys are legitimate
@@ -123,10 +157,13 @@ class AssetsService {
         asset[key] = params[key];
       }
 
-      return Promise.resolve(asset);
+      return asset;
     } else {
-      return Promise.reject('No asset by id ' + id);
+      return 'No asset by id ' + id;
     }
+  }
+  async getBySocket(socketId, params) {
+    return this.assetsBySocket[socketId];
   }
 }
 app.use('/assets', new AssetsService());
@@ -177,8 +214,7 @@ app.service('assets').publish((data, hook) => {
   return app.channel('everybody');
 });
 
-// ---- Game loop ----
-let t = new Date();
+// ---- Game Loop ----
 const gameLoop = setInterval(async () => {
   const assets = await app.service('assets').find();
   const userInputs = await app.service('userInputs').find();
@@ -190,18 +226,11 @@ const gameLoop = setInterval(async () => {
   assets.forEach((asset, i) => {
     const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
     const userInput = userInputs[asset.socketId];
-    let torque = new Three.Quaternion().identity();
-    let force = new Three.Vector3(0, 0, 0);
 
-    if (userInput) {
-      torque = new Three.Quaternion().setFromEuler(new Three.Euler(userInput.forward - userInput.back, userInput.left - userInput.right, userInput.clockwise - userInput.counterclockwise, 'XYZ'));
-      force = new Three.Vector3(0, 0, userInput.space ? 1 : 0);
-      force.applyQuaternion(orientation);
-    }
+    const torque = calculateUserInputTorque(userInput, orientation);
+    const force = calculateUserInputForce(userInput, orientation);
 
-    const targetOrientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
-    targetOrientation.multiply(torque);
-    targetOrientation.normalize();
+    const targetOrientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w).multiply(torque).normalize();
     orientation.rotateTowards(targetOrientation, dt);
     orientation.normalize();
 
@@ -251,6 +280,23 @@ const gameLoop = setInterval(async () => {
 }, 100);
 
 
+function calculateUserInputTorque(userInput, asset) {
+  const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
+  let torque = new Three.Quaternion().identity();
+  if (userInput) {
+    torque = new Three.Quaternion().setFromEuler(new Three.Euler(userInput.back - userInput.forward, userInput.left - userInput.right, userInput.clockwise - userInput.counterclockwise, 'XYZ'));
+  }
+  return torque;
+}
+function calculateUserInputForce(userInput, asset) {
+  const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
+  let force = new Three.Vector3(0, 0, 0);
+  force = new Three.Vector3(0, 0, userInput.space ? 1 : 0);
+  force.applyQuaternion(orientation);
+  return force;
+}
+
+
 // ---- Running the app ----
 app.listen(port, () => console.log(`Nova running on http://0.0.0.0:${port}`))
 
@@ -258,20 +304,20 @@ app.listen(port, () => console.log(`Nova running on http://0.0.0.0:${port}`))
 // ---- Helper functions ----
 function randomSpaceship() {
   const options = [{
-    obj: '/public/SpaceFighter01/SpaceFighter01.obj',
-    texture: '/public/SpaceFighter01/F01_512.jpg'
-  }, {
+//    obj: '/public/SpaceFighter01/SpaceFighter01.obj',
+//    texture: '/public/SpaceFighter01/F01_512.jpg'
+//  }, {
     obj: '/public/SpaceFighter02/SpaceFighter02.obj',
     texture: '/public/SpaceFighter02/F02_512.jpg'
-  }, {
-    obj: '/public/SpaceFighter03/SpaceFighter03.obj',
-    texture: '/public/SpaceFighter03/F03_512.jpg'
-  }, {
-    obj: '/public/Shuttle01/Shuttle01.obj',
-    texture: '/public/Shuttle01/S01_512.jpg'
-  }, {
-    obj: '/public/Shuttle02/Shuttle02.obj',
-    texture: '/public/Shuttle02/S02_512.jpg'
+//  }, {
+//    obj: '/public/SpaceFighter03/SpaceFighter03.obj',
+//    texture: '/public/SpaceFighter03/F03_512.jpg'
+//  }, {
+//    obj: '/public/Shuttle01/Shuttle01.obj',
+//    texture: '/public/Shuttle01/S01_512.jpg'
+//  }, {
+//    obj: '/public/Shuttle02/Shuttle02.obj',
+//    texture: '/public/Shuttle02/S02_512.jpg'
   }];
 
   return options[Math.floor(Math.random() * options.length)];
