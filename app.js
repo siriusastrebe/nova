@@ -58,9 +58,7 @@ class UserInputsService {
     }
     this.users[data.id] = userInput;
   }
-  patch(id, params, c) {
-    return new Promise((resolve, reject) => { 
-    setTimeout(async() => {
+  async patch(id, params, c) {
     // Ignore user provided ID, use socket id instead
     const socketId = c.connection.socketId;
     const userInput = this.users[socketId];
@@ -72,16 +70,7 @@ class UserInputsService {
       }
     }
 
-    // Send the changes immediately
-    const asset = await app.service('assets').getBySocket(socketId);
-    if (asset) {
-      const changes = calculateAssetChanges(asset, userInput);
-      await app.service('assets').patch(asset.id, changes);
-    }
-
-    resolve(userInput);
-    }, 100);
-    })
+    return userInput;
   }
 }
 
@@ -149,7 +138,7 @@ class AssetsService {
 
       return asset;
     } else {
-      return 'No asset by id ' + id;
+      throw 'No asset by id ' + id;
     }
   }
   async getBySocket(socketId, params) {
@@ -224,29 +213,32 @@ const gameLoop = setInterval(async () => {
 
     setTimeout(() => {
       app.service('assets').emit('networktick', allChanges);
-    }, 0);
+    }, 100);
   }
-}, 10);
+}, 200);
 
-function calculateAssetChanges(asset, userInput) {
+function calculateAssetChanges(asset, userInput, ignoreUserInputForces) {
   let dt = (new Date() - asset.t) / 1000;
 
-  const rotation = calculateUserInputTorque(userInput, asset);
-  const force = calculateUserInputForce(userInput, asset);
-
-  const drotation = new Three.Quaternion().identity().rotateTowards(rotation, rotation.angleTo(new Three.Quaternion().identity()) * dt);
-
   const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
-  orientation.multiply(drotation);
-  orientation.normalize();
+
+  let rotation = new Three.Quaternion(asset.vi, asset.vj, asset.vk, asset.vw);
+  let force = new Three.Vector3(0, 0, 0);
+  if (!ignoreUserInputForces) {
+    rotation = calculateUserInputTorque(userInput, asset);
+    force = calculateUserInputForce(userInput, asset);
+
+    const drotation = new Three.Quaternion().identity().rotateTowards(rotation, rotation.angleTo(new Three.Quaternion().identity()) * dt);
+    orientation.multiply(drotation);
+    orientation.normalize();
+  }
 
   // TODO: Use pythagorean distance
   const changes = {
     t: new Date(),
-
-    vx: asset.vx * 0.9 + force.x * 200,
-    vy: asset.vy * 0.9 + force.y * 200,
-    vz: asset.vz * 0.9 + force.z * 200,
+    vx: asset.vx * 0.98 + force.x * 80,
+    vy: asset.vy * 0.98 + force.y * 80,
+    vz: asset.vz * 0.98 + force.z * 80,
 
     x: asset.x + asset.vx * dt,
     y: asset.y + asset.vy * dt,

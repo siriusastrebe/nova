@@ -76,6 +76,12 @@ function render() {
   let dt = (new Date() - t) / 1000;
   averagedt = (averagedt * 0.8) + (dt * (1-0.8));
 
+  // Prevents page lock
+  if (averagedt > 0.5) {
+    t = new Date();
+    return
+  }
+
   // Update each asset's position and rotation by dt, the fraction of a second that has elapsed since last render()
   Object.keys(assets).forEach((id) => {
     const asset = assets[id];
@@ -102,13 +108,19 @@ function render() {
       asset.object.position.y = asset.y;
       asset.object.position.z = asset.z;
 
-      asset.object.setRotationFromQuaternion(orientation);
+
+//      if (asset.id === controlledAsset.id) {
+        // Smooth out the orientation if this asset belongs to this client 
+//        smoothOrientation(asset, orientation);
+//      } else {
+        asset.object.setRotationFromQuaternion(orientation);
+//      }
     }
   });
 
   // Camera fixing
-  if (controlledAsset) {
-    const orientation = new Quaternion(controlledAsset.i, controlledAsset.j, controlledAsset.k, controlledAsset.w);
+  if (controlledAsset && controlledAsset.object) {
+    const orientation = controlledAsset.object.quaternion;
 
     // For some reason the camera is flipped 180° and mirrored
     const opposite = new Quaternion(1, 0, 0, 0).premultiply(orientation).multiply(new Quaternion(0, 0, 1, 0)).normalize();
@@ -134,8 +146,8 @@ function render() {
   t = new Date();
 }
 function animate() {
-  requestAnimationFrame(animate);
   render();
+  requestAnimationFrame(animate);
 }
 
 
@@ -174,17 +186,9 @@ console.log('Adding asset', asset);
 export function updateAsset(asset) {
   const existing = assets[asset.id];
   if (existing) {
-    if (existing.object) {
-      existing.object.position.x = asset.x;
-      existing.object.position.y = asset.y;
-      existing.object.position.z = asset.z;
-      const orientation = new Quaternion(asset.i, asset.j, asset.k, asset.w);
-      existing.object.setRotationFromQuaternion(orientation);
-
-      for (let key in asset) {
-        if (existing[key] !== asset[key]) {
-          existing[key] = asset[key];
-        }
+    for (let key in asset) {
+      if (existing[key] !== asset[key]) {
+        existing[key] = asset[key];
       }
     }
   } else {
@@ -372,4 +376,11 @@ function equitorialToCartesian(dec, ra) {
   pos.x = Math.sin(raR) * Math.cos(decR) * 100000;
   pos.y = Math.sin(decR) * 100000;
   return pos;
+}
+
+function smoothOrientation(asset, orientation) {
+  const currentOrientation = asset.object.quaternion;
+  const discrepancy = currentOrientation.angleTo(orientation);
+console.log(discrepancy);
+  currentOrientation.rotateTowards(orientation, discrepancy <= 0.01 ? discrepancy : discrepancy / 2); 
 }
