@@ -19,8 +19,6 @@ const knex            = require('knex')({
   }
 });
 
-let t = new Date();
-
 // ---- Feathers App ----
 const app = express(feathers());                 // Creates an ExpressJS compatible Feathers application
 app.use(express.json());                         // Parse HTTP JSON bodies
@@ -60,7 +58,9 @@ class UserInputsService {
     }
     this.users[data.id] = userInput;
   }
-  async patch(id, params, c) {
+  patch(id, params, c) {
+    return new Promise((resolve, reject) => { 
+    setTimeout(async() => {
     // Ignore user provided ID, use socket id instead
     const socketId = c.connection.socketId;
     const userInput = this.users[socketId];
@@ -72,27 +72,16 @@ class UserInputsService {
       }
     }
 
+    // Send the changes immediately
     const asset = await app.service('assets').getBySocket(socketId);
     if (asset) {
-      const torque = calculateUserInputTorque(userInput, asset);
-      const force = calculateUserInputForce(userInput, asset);
-
-      // TODO: Use pythagorean distance
-      const patch = {
-        vx: asset.vx + force.x * 200,
-        vy: asset.vy + force.y * 200,
-        vz: asset.vz + force.z * 200,
-        vw: torque._w,
-        vi: torque._x,
-        vj: torque._y,
-        vk: torque._z
-      }
-console.log('patching asset', asset.id);
-
-      app.service('assets').patch(asset.id, patch);
+      const changes = calculateAssetChanges(asset, userInput);
+      await app.service('assets').patch(asset.id, changes);
     }
 
-    return userInput;
+    resolve(userInput);
+    }, 200);
+    })
   }
 }
 
@@ -107,6 +96,7 @@ class AssetsService {
     const id = this.idcounter;
     const asset = {
       id: id,
+      t: new Date(),
       obj: data.obj,
       texture: data.texture,
       x: data.x,
@@ -219,65 +209,60 @@ const gameLoop = setInterval(async () => {
   const assets = await app.service('assets').find();
   const userInputs = await app.service('userInputs').find();
 
-  let dt = (new Date() - t) / 1000;
+  if (assets.length > 0) {
+    const allChanges = assets.map((asset) => {
+      const changes = calculateAssetChanges(asset, userInputs[asset.socketId]);
 
-  const allChanges = [];
+      // Assign changes to asset
+      for (let key in changes) {
+        asset[key] = changes[key];
+      }
 
-  assets.forEach((asset, i) => {
-    const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
-    const userInput = userInputs[asset.socketId];
+      changes.id = asset.id;
+      return changes;
+    });
 
-    const torque = calculateUserInputTorque(userInput, asset);
-    const force = calculateUserInputForce(userInput, asset);
-
-    const targetOrientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w).multiply(torque).normalize();
-    orientation.rotateTowards(targetOrientation, dt);
-    orientation.normalize();
-
-    // TODO: Use pythagorean distance
-    asset.vx = asset.vx * 0.9 + force.x * 200;
-    asset.vy = asset.vy * 0.9 + force.y * 200;
-    asset.vz = asset.vz * 0.9 + force.z * 200;
-
-    asset.x = asset.x + asset.vx * dt;
-    asset.y = asset.y + asset.vy * dt;
-    asset.z = asset.z + asset.vz * dt;
-
-    asset.w = orientation._w;
-    asset.i = orientation._x;
-    asset.j = orientation._y;
-    asset.k = orientation._z;
-
-    asset.vw = torque._w;
-    asset.vi = torque._x;
-    asset.vj = torque._y;
-    asset.vk = torque._z;
-
-    const changes = {
-      id: asset.id,
-      x: asset.x,
-      y: asset.y,
-      z: asset.z,
-      vx: asset.vx,
-      vy: asset.vy,
-      vz: asset.vz,
-      w: asset.w,
-      i: asset.i,
-      j: asset.j,
-      k: asset.k,
-      vw: asset.vw,
-      vi: asset.vi,
-      vk: asset.vk,
-      vj: asset.vj,
-    }
-
-    allChanges.push(changes);
-  });
-
-  app.service('assets').emit('networktick', allChanges);
-
-  t = new Date();
+    app.service('assets').emit('networktick', allChanges);
+  }
 }, 100);
+
+function calculateAssetChanges(asset, userInput) {
+  let dt = (new Date() - asset.t) / 1000;
+
+  const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
+
+  const torque = calculateUserInputTorque(userInput, asset);
+  const force = calculateUserInputForce(userInput, asset);
+
+  const targetOrientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w).multiply(torque).normalize();
+  orientation.rotateTowards(targetOrientation, dt);
+  orientation.normalize();
+
+  // TODO: Use pythagorean distance
+  const changes = {
+    t: new Date(),
+
+    vx: asset.vx * 0.9 + force.x * 200,
+    vy: asset.vy * 0.9 + force.y * 200,
+    vz: asset.vz * 0.9 + force.z * 200,
+
+    x: asset.x + asset.vx * dt,
+    y: asset.y + asset.vy * dt,
+    z: asset.z + asset.vz * dt,
+
+    w: orientation._w,
+    i: orientation._x,
+    j: orientation._y,
+    k: orientation._z,
+
+    vw: torque._w,
+    vi: torque._x,
+    vj: torque._y,
+    vk: torque._z
+  };
+
+  return changes;
+}
 
 
 function calculateUserInputTorque(userInput, asset) {

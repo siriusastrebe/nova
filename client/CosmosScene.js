@@ -27,7 +27,7 @@ function init() {
   scene = new Scene();
   sceneStars = new Scene();
 
-  const fov = 40;
+  const fov = 90;
   const near = 0.1;
   const far = 200000;
   camera = new PerspectiveCamera(fov, aspect, near, far);
