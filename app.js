@@ -80,7 +80,7 @@ class UserInputsService {
     }
 
     resolve(userInput);
-    }, 200);
+    }, 100);
     })
   }
 }
@@ -222,20 +222,22 @@ const gameLoop = setInterval(async () => {
       return changes;
     });
 
-    app.service('assets').emit('networktick', allChanges);
+    setTimeout(() => {
+      app.service('assets').emit('networktick', allChanges);
+    }, 0);
   }
-}, 100);
+}, 10);
 
 function calculateAssetChanges(asset, userInput) {
   let dt = (new Date() - asset.t) / 1000;
 
-  const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
-
-  const torque = calculateUserInputTorque(userInput, asset);
+  const rotation = calculateUserInputTorque(userInput, asset);
   const force = calculateUserInputForce(userInput, asset);
 
-  const targetOrientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w).multiply(torque).normalize();
-  orientation.rotateTowards(targetOrientation, dt);
+  const drotation = new Three.Quaternion().identity().rotateTowards(rotation, rotation.angleTo(new Three.Quaternion().identity()) * dt);
+
+  const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
+  orientation.multiply(drotation);
   orientation.normalize();
 
   // TODO: Use pythagorean distance
@@ -255,10 +257,10 @@ function calculateAssetChanges(asset, userInput) {
     j: orientation._y,
     k: orientation._z,
 
-    vw: torque._w,
-    vi: torque._x,
-    vj: torque._y,
-    vk: torque._z
+    vw: rotation._w,
+    vi: rotation._x,
+    vj: rotation._y,
+    vk: rotation._z
   };
 
   return changes;
@@ -266,12 +268,21 @@ function calculateAssetChanges(asset, userInput) {
 
 
 function calculateUserInputTorque(userInput, asset) {
-  const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
-  let torque = new Three.Quaternion().identity();
+  const rotation = new Three.Quaternion(asset.vi, asset.vj, asset.vk, asset.vw);
+  const identity = new Three.Quaternion().identity();
+
   if (userInput) {
-    torque = new Three.Quaternion().setFromEuler(new Three.Euler(userInput.back - userInput.forward, userInput.left - userInput.right, userInput.clockwise - userInput.counterclockwise, 'XYZ'));
+    const quarterRotations = new Three.Quaternion().setFromEuler(new Three.Euler(userInput.back - userInput.forward, userInput.left - userInput.right, userInput.clockwise - userInput.counterclockwise, 'XYZ'));
+    const nudge = new Three.Quaternion().identity().rotateTowards(quarterRotations, quarterRotations.angleTo(identity) / 30);
+    rotation.multiply(nudge);
   }
-  return torque;
+
+  // Dampening effect to set a max rotation speed
+  rotation.rotateTowards(identity, rotation.angleTo(identity) / 50);
+
+  rotation.normalize();
+
+  return rotation;
 }
 function calculateUserInputForce(userInput, asset) {
   const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);

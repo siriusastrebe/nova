@@ -27,7 +27,7 @@ function init() {
   scene = new Scene();
   sceneStars = new Scene();
 
-  const fov = 90;
+  const fov = 75;
   const near = 0.1;
   const far = 200000;
   camera = new PerspectiveCamera(fov, aspect, near, far);
@@ -85,13 +85,11 @@ function render() {
     asset.z = asset.z + asset.vz * dt;
 
     const orientation = new Quaternion(asset.i, asset.j, asset.k, asset.w);
-    const rotationalInertia  = new Quaternion(asset.vi, asset.vj, asset.vk, asset.vw);
+    const rotation = new Quaternion(asset.vi, asset.vj, asset.vk, asset.vw);
 
-    const targetOrientation = new Quaternion(asset.i, asset.j, asset.k, asset.w);
-    targetOrientation.multiply(rotationalInertia);
-    targetOrientation.normalize();
+    const drotation = new Quaternion().identity().rotateTowards(rotation, rotation.angleTo(new Quaternion().identity()) * dt);
 
-    orientation.rotateTowards(targetOrientation, dt);
+    orientation.multiply(drotation);
     orientation.normalize();
 
     asset.i = orientation._x;
@@ -106,8 +104,6 @@ function render() {
 
       asset.object.setRotationFromQuaternion(orientation);
     }
-
-    t = new Date();
   });
 
   // Camera fixing
@@ -118,8 +114,8 @@ function render() {
     const opposite = new Quaternion(1, 0, 0, 0).premultiply(orientation).multiply(new Quaternion(0, 0, 1, 0)).normalize();
 
     // Adjust so we're kinda looking down on the ship
-    const downwardsAdjustment = new Quaternion().setFromEuler(new Euler(-0.6, 0, 0));
-    const upwardsAdjustment = new Quaternion().setFromEuler(new Euler(0.25, 0, 0));
+    const downwardsAdjustment = new Quaternion().setFromEuler(new Euler(-0.4, 0, 0));
+    const upwardsAdjustment = new Quaternion().setFromEuler(new Euler(0.4, 0, 0));
     opposite.multiply(downwardsAdjustment);
 
     const vectorOrientation = new Vector3(0, 0, 1).applyQuaternion(opposite);
@@ -134,6 +130,8 @@ function render() {
 
   renderer.render(sceneStars, camera);
   renderer.render(scene, camera);
+
+  t = new Date();
 }
 function animate() {
   requestAnimationFrame(animate);
