@@ -46,7 +46,7 @@ export default function initializeFeathers(addAsset, updateAsset, setControlledA
   });
 
   feathers.service('assets').on('updated', (asset, b) => {
-    console.log('Asset updated', asset, b);
+    console.log('Asset updated', asset);
     updateAsset(asset);
     const current = assets.find(a => a.id === asset.id)
     assets[assets.indexOf(current)] = asset;
@@ -58,7 +58,7 @@ export default function initializeFeathers(addAsset, updateAsset, setControlledA
   });
 
   feathers.service('assets').on('patched', (asset, b) => {
-    console.log('Asset patched', asset, b);
+    console.log('Asset patched', asset);
     updateAsset(asset, b);
     const current = assets.find(a => a.id === asset.id)
     assets[assets.indexOf(current)] = asset;

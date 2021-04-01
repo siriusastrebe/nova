@@ -1,25 +1,24 @@
 import { TextureLoader, PlaneGeometry, Scene, PerspectiveCamera, Vector3, Matrix4, WebGLRenderer, PCFSoftShadowMap, SphereBufferGeometry, Mesh, MeshLambertMaterial, SpotLight, LineBasicMaterial, AmbientLight, Line, MeshBasicMaterial, MeshPhongMaterial, BufferGeometry, DoubleSide, Euler, Quaternion, AxesHelper, GridHelper } from 'three';
-import { Lensflare, LensflareElement } from "three/examples/jsm/objects/Lensflare";
+import { Lensflare, LensflareElement } from 'three/examples/jsm/objects/Lensflare';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import starsData from './stars.js';
 console.log(starsData);
 
 window.addEventListener( 'resize', onWindowResize, false );
 
-var camera, scene, sceneStars, renderer, controls;
-var stars = [];
-var width = window.innerWidth - 30;
-var height = windowHeight();
-var aspect = width / height;
+let camera, scene, sceneStars, renderer, controls;
+let stars = [];
+let width = window.innerWidth - 30;
+let height = windowHeight();
+let aspect = width / height;
 let cameraDistance = 800;
 
-var textureLoader = new TextureLoader();
-var objLoader = new OBJLoader();
+let textureLoader = new TextureLoader();
+let objLoader = new OBJLoader();
 
-var assets = {};
-var controlledAsset;
+let assets = {};
+let controlledAsset;
 
 init();
 
@@ -65,56 +64,44 @@ function onWindowResize(){
 }
 
 
-let t = new Date();
-let averagedt = 0;
-
 function render() {
   // Trick to allow multiple scenes on a single renderer
   renderer.autoClear = false;
   renderer.clear();
 
-  let dt = (new Date() - t) / 1000;
-  averagedt = (averagedt * 0.8) + (dt * (1-0.8));
-
-  // Prevents page lock
-  if (averagedt > 0.5) {
-    t = new Date();
-    return
-  }
+//  averagedt = (averagedt * 0.8) + (dt * (1-0.8));
 
   // Update each asset's position and rotation by dt, the fraction of a second that has elapsed since last render()
   Object.keys(assets).forEach((id) => {
     const asset = assets[id];
 
-    asset.x = asset.x + asset.vx * dt;
-    asset.y = asset.y + asset.vy * dt;
-    asset.z = asset.z + asset.vz * dt;
+    // asset.t stores the local timestamp of when the asset was last updated with server gamestate
+    let dt = (new Date() - asset.t) / 1000;
 
+    let x = asset.x + asset.dx * dt + 1/2 * asset.ddx * dt * dt;
+    let y = asset.y + asset.dy * dt + 1/2 * asset.ddy * dt * dt;
+    let z = asset.z + asset.dz * dt + 1/2 * asset.ddz * dt * dt;
+
+    const torque = new Quaternion(asset.ddi, asset.ddj, asset.ddk, asset.ddw);
+    const rotation = new Quaternion(asset.di, asset.dj, asset.dk, asset.dw);
     const orientation = new Quaternion(asset.i, asset.j, asset.k, asset.w);
-    const rotation = new Quaternion(asset.vi, asset.vj, asset.vk, asset.vw);
 
-    const drotation = new Quaternion().identity().rotateTowards(rotation, rotation.angleTo(new Quaternion().identity()) * dt);
+    const rotationCopy = new Quaternion().copy(rotation);
 
-    orientation.multiply(drotation);
-    orientation.normalize();
+    const orientationCopy1 = new Quaternion().copy(orientation);
+    orientation.rotateTowards(orientationCopy1.multiply(rotation), dt);          // Add rotational velocity * dt
 
-    asset.i = orientation._x;
-    asset.j = orientation._y;
-    asset.k = orientation._z;
-    asset.w = orientation._w;
+    const orientationCopy2 = new Quaternion().copy(orientation);
+    orientation.rotateTowards(orientationCopy2.multiply(torque), 1/2 * dt * dt); // Add 1/2 * angular acceleration * dt^2
+
+    rotation.rotateTowards(rotationCopy.multiply(torque), dt);
 
     if (asset.object) {
-      asset.object.position.x = asset.x;
-      asset.object.position.y = asset.y;
-      asset.object.position.z = asset.z;
+      asset.object.position.x = x;
+      asset.object.position.y = y;
+      asset.object.position.z = z;
 
-
-//      if (asset.id === controlledAsset.id) {
-        // Smooth out the orientation if this asset belongs to this client 
-//        smoothOrientation(asset, orientation);
-//      } else {
-        asset.object.setRotationFromQuaternion(orientation);
-//      }
+      asset.object.setRotationFromQuaternion(orientation);
     }
   });
 
@@ -132,9 +119,9 @@ function render() {
 
     const vectorOrientation = new Vector3(0, 0, 1).applyQuaternion(opposite);
 
-    camera.position.x = controlledAsset.x + vectorOrientation.x * cameraDistance;
-    camera.position.y = controlledAsset.y + vectorOrientation.y * cameraDistance;
-    camera.position.z = controlledAsset.z + vectorOrientation.z * cameraDistance;
+    camera.position.x = controlledAsset.object.position.x + vectorOrientation.x * cameraDistance;
+    camera.position.y = controlledAsset.object.position.y + vectorOrientation.y * cameraDistance;
+    camera.position.z = controlledAsset.object.position.z + vectorOrientation.z * cameraDistance;
 
     opposite.multiply(upwardsAdjustment);
     camera.setRotationFromQuaternion(opposite);
@@ -142,8 +129,6 @@ function render() {
 
   renderer.render(sceneStars, camera);
   renderer.render(scene, camera);
-
-  t = new Date();
 }
 function animate() {
   render();
@@ -160,11 +145,9 @@ export function renderSpace() {
 }
 
 export function addAsset(asset) {
-console.log('Adding asset', asset);
   let model;
 
   assets[asset.id] = asset;
-
   objLoader.load(asset.obj, (object) => {
     textureLoader.load(asset.texture, (texture) => {
       let material = new MeshBasicMaterial({map: texture});
@@ -186,8 +169,13 @@ console.log('Adding asset', asset);
 export function updateAsset(asset) {
   const existing = assets[asset.id];
   if (existing) {
+    existing.t = new Date();
+
     for (let key in asset) {
       if (existing[key] !== asset[key]) {
+        if (Math.abs(existing[key] - asset[key]) > 0.1) {
+          //console.log(key, existing[key] - asset[key]);
+        }
         existing[key] = asset[key];
       }
     }
@@ -236,7 +224,7 @@ function createEarth() {
 }
 
 function createSun(earth) {
-  var light = new SpotLight( 0xffffff, 3, 0, Math.PI / 256);
+  let light = new SpotLight( 0xffffff, 3, 0, Math.PI / 256);
   light.target = earth;
   light.castShadow = true;
   light.shadow.camera.near = 0.5;
@@ -244,11 +232,11 @@ function createSun(earth) {
   light.position.set(100000, 0, 0);
   scene.add(light);
 
-  var lensflare = new Lensflare();
+  let lensflare = new Lensflare();
 
-  var textureFlare0 = textureLoader.load( "/public/lensflare0.png" );
-  var textureFlare3 = textureLoader.load( "/public/lensflare3.png" );
-  var textureFlare4 = textureLoader.load( "/public/lensflare4.png" );
+  let textureFlare0 = textureLoader.load( "/public/lensflare0.png" );
+  let textureFlare3 = textureLoader.load( "/public/lensflare3.png" );
+  let textureFlare4 = textureLoader.load( "/public/lensflare4.png" );
 
   lensflare.addElement( new LensflareElement( textureFlare0, 700, 0 ) );
   lensflare.addElement( new LensflareElement( textureFlare3, 60, 0.6 ) );
@@ -280,25 +268,25 @@ function createMoon() {
   });
 }
 function createStars() {
-  var light = new AmbientLight(0xffffff, 1);
+  let light = new AmbientLight(0xffffff, 1);
   sceneStars.add(light);
   console.log('Stars: ', starsData.length);
 
   for (let i=0; i<starsData.length; i++) {
-    var data = starsData[i];
+    let data = starsData[i];
 
-    var size = 100 - data['Mag'] * 10;
-    var sides = 7;
+    let size = 100 - data['Mag'] * 10;
+    let sides = 7;
 
     if (data['Mag'] < -1) {
       size = 180;
       sides = 9;
     }
 
-    var geometry = new SphereBufferGeometry(size, sides, sides);
-    var color = approximateStarColor(Number(data['ColorIndex']));
-    var material = new MeshPhongMaterial( {color: color} );
-    var sphere = new Mesh( geometry, material );
+    let geometry = new SphereBufferGeometry(size, sides, sides);
+    let color = approximateStarColor(Number(data['ColorIndex']));
+    let material = new MeshPhongMaterial( {color: color} );
+    let sphere = new Mesh( geometry, material );
 
     position(data['Dec'], data['RA'], sphere);
     sphere.userData['starData'] = data;
@@ -362,16 +350,16 @@ function approximateStarColor(bv) {
 // Helper functions
 // ----------------------------------------------------------------
 function position(dec, ra, object) {
-  var pos = equitorialToCartesian(dec, ra);
+  let pos = equitorialToCartesian(dec, ra);
 
   object.position.x = pos.x;
   object.position.y = pos.y;
   object.position.z = pos.z;
 }
 function equitorialToCartesian(dec, ra) {
-  var decR = Number(dec) / 180 * Math.PI;
-  var raR = Number(ra) / 24 * Math.PI * 2;
-  var pos = {}
+  let decR = Number(dec) / 180 * Math.PI;
+  let raR = Number(ra) / 24 * Math.PI * 2;
+  let pos = {}
   pos.z = Math.cos(raR) * Math.cos(decR)  * 100000;
   pos.x = Math.sin(raR) * Math.cos(decR) * 100000;
   pos.y = Math.sin(decR) * 100000;
