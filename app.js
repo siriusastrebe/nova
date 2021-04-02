@@ -64,10 +64,6 @@ class UserInputsService {
     const socketId = c.connection.socketId;
     const userInput = this.users[socketId];
 
-    // Calculating asset tick resets dt for all calculations, ensuring new user inputs aren't multiplied by a large dt
-    const asset = await app.service('assets').getBySocket(socketId);
-    calculateAssetTick(asset);
-
     for (let key in params) {
       const value = params[key];
       if (key in userInput) {
@@ -77,7 +73,6 @@ class UserInputsService {
 
 
     // Send the changes immediately
-
     //if (asset) {
     //  const changes = calculateAssetTick(asset);
     //setTimeout(async() => {
@@ -117,11 +112,9 @@ class AssetsService {
       i: data.i,
       j: data.j,
       k: data.k,
-      da: data.da,
       di: data.di,
       dj: data.dj,
       dk: data.dk,
-      dda: data.dda,
       ddi: data.ddi,
       ddj: data.ddj,
       ddk: data.ddk,
@@ -208,11 +201,9 @@ app.on('connection', (connection, b) => {
     i: 0,
     j: 0,
     k: 0,
-    da: 1,
     di: 0,
     dj: 0,
     dk: 0,
-    dda: 0,
     ddi: 0,
     ddj: 0,
     ddk: 0,
@@ -232,8 +223,8 @@ const gameLoop = setInterval(async () => {
 
   if (assets.length > 0) {
     const allChanges = assets.map((asset) => {
-      const forces = calculateAssetForces(asset, userInputs[asset.socketId]);
       const changes = calculateAssetTick(asset);
+      const forces = calculateAssetForces(asset, userInputs[asset.socketId]);
 
       Object.keys(forces).map((key) => { changes[key] = forces[key] });
       changes.id = asset.id;
@@ -243,13 +234,13 @@ const gameLoop = setInterval(async () => {
 
     setTimeout(() => {
       app.service('assets').emit('networktick', allChanges);
-    }, Math.random() * 100);
+    }, 100)//(Math.random() * 50) + 50);
   }
-}, 1000);
+}, 200);
 
 function calculateAssetForces(asset, userInput) {
-  const dragRadians = 0.4;
-  const userInputTorqueRadians = 1;
+  const angularDrag = 1;
+  const torqueRadians = 2;
   const dragRatio = 0.001;
   const engineSpeed = 1000;
 
@@ -266,6 +257,7 @@ function calculateAssetForces(asset, userInput) {
   drag.multiplyScalar(dragRatio);
   force.add(drag);
 
+
 /*
   // Orientation/Rotation/Torque
   const rotation = new Three.Quaternion(asset.di, asset.dj, asset.dk, asset.dw);
@@ -281,23 +273,31 @@ function calculateAssetForces(asset, userInput) {
   torque.normalize();
 */
 
-  const torqueAxis = new Three.Vector3(userInput.back - userInput.forward, userInput.left - userInput.right, userInput.clockwise - userInput.counterclockwise).normalize();
-  const input = (userInput.back || userInput.forward || userInput.left || userInput.right || userInput.clockwise || userInput.counterclockwise);
+
+  // Orientation/Rotation/Torque
+  const xInput = (userInput.back - userInput.forward) * torqueRadians;
+  const yInput = (userInput.left - userInput.right) * torqueRadians;
+  const zInput = (userInput.clockwise - userInput.counterclockwise) * torqueRadians;
+
+  const eulerTorque = new Three.Euler(xInput, yInput, zInput, 'XYZ');
+
+  // Automatic Rotational drag
+  eulerTorque.x = eulerTorque.x - asset.di * angularDrag;
+  eulerTorque.y = eulerTorque.y - asset.dj * angularDrag;
+  eulerTorque.z = eulerTorque.z - asset.dk * angularDrag;
 
   asset.ddx = force.x * engineSpeed;
   asset.ddy = force.y * engineSpeed;
   asset.ddz = force.z * engineSpeed;
 
-  asset.dda = (input) * 1;
-  asset.ddi = torqueAxis.x;
-  asset.ddj = torqueAxis.y;
-  asset.ddk = torqueAxis.z;
+  asset.ddi = eulerTorque.x;
+  asset.ddj = eulerTorque.y;
+  asset.ddk = eulerTorque.z;
 
   return changes = {
     ddx: asset.ddx,
     ddy: asset.ddy,
     ddz: asset.ddz,
-    dda: asset.dda,
     ddi: asset.ddi,
     ddj: asset.ddj,
     ddk: asset.ddk
@@ -318,50 +318,19 @@ function calculateAssetTick(asset) {
 
   // const torque = new Three.Quaternion(asset.ddi, asset.ddj, asset.ddk, asset.ddw);
   const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
-
-  const rotationAxis = new Three.Vector3(asset.di, asset.dj, asset.dk);
-  const rotationAngle = asset.da * dt;
-
-  const torqueAxis = new Three.Vector3(asset.ddi, asset.ddj, asset.ddk);
-  const torqueAngle = 1/2 * asset.dda * dt * dt;
-
-  const rotationQuaternion = new Three.Quaternion().setFromAxisAngle(rotationAxis, rotationAngle);
-  torqueQuaternion = new Three.Quaternion().setFromAxisAngle(torqueAxis, torqueAngle);
-
-  orientation.multiply(rotationQuaternion);
-  orientation.multiply(torqueQuaternion);
-  orientation.normalize();
-
-  rotationQuaternion.multiply(torqueQuaternion);
-  function quaternionToAxisAngle(q) {
-    // https://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToAngle/index.htm
-    const payload = {};
-    q.normalize();
-
-    payload.angle = 2 * Math.acos(q._w);
-    const s = Math.sqrt(1-q._w*q._w); // assuming quaternion normalised then w is less than 1, so term always positive.
-    if (s < 0.001) { // test to avoid divide by zero, s is always positive due to sqrt
-
-      // if s close to zero then direction of axis not important. If it is important that axis is normalised then replace with x=1; y=z=0;
-      payload.axis = new Three.Vector3(q._x, q._y, q._z);
-    } else {
-      payload.axis = new Three.Vector3(q._x/s, q._y/s, q._z/s);
-    }
-    return payload;
-  }
-
-  const {axis, angle} = quaternionToAxisAngle(rotationQuaternion);
-console.log(orientation);
-
-  asset.da = angle;
-  asset.di = axis.x;
-  asset.dj = axis.y;
-  asset.dk = axis.z;
+  const dorientation = new Three.Euler(asset.di*dt + asset.ddi*1/2*dt*dt, 
+                                       asset.dj*dt + asset.ddj*1/2*dt*dt,
+                                       asset.dk*dt + asset.ddk*1/2*dt*dt);
+  orientation.multiply(new Three.Quaternion().setFromEuler(dorientation));
 
   asset.w = orientation._w;
   asset.i = orientation._x;
   asset.j = orientation._y;
   asset.k = orientation._z;
+
+  asset.di = asset.di + asset.ddi * dt;
+  asset.dj = asset.dj + asset.ddj * dt;
+  asset.dk = asset.dk + asset.ddk * dt;
 
   asset.t = new Date();
 
@@ -374,7 +343,6 @@ console.log(orientation);
     dy: asset.dy,
     dz: asset.dz,
 
-    da: asset.da,
     di: asset.di,
     dj: asset.dj,
     dk: asset.dk,

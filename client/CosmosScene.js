@@ -84,38 +84,10 @@ function render() {
     let z = asset.z + asset.dz * dt + 1/2 * asset.ddz * dt * dt;
 
     const orientation = new Quaternion(asset.i, asset.j, asset.k, asset.w);
-
-    const rotationAxis = new Vector3(asset.di, asset.dj, asset.dk);
-    const rotationAngle = asset.da * dt; 
-
-    const torqueAxis = new Vector3(asset.ddi, asset.ddj, asset.ddk);
-    const torqueAngle = 1/2 * asset.dda * dt * dt; 
-
-    const rotationQuaternion = new Quaternion().setFromAxisAngle(rotationAxis, rotationAngle);
-    const torqueQuaternion = new Quaternion().setFromAxisAngle(torqueAxis, torqueAngle);
-
-    orientation.multiply(rotationQuaternion);
-    orientation.multiply(torqueQuaternion);
-    orientation.normalize();
-
-    rotationQuaternion.multiply(torqueQuaternion);
-
-//    function quaternionToAxisAngle(q) {
-//      // https://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToAngle/index.htm
-//      const payload = {}; 
-//      q.normalize();
-//  
-//      payload.angle = 2 * Math.acos(q.w);
-//      double s = Math.sqrt(1-q.w*q.w); // assuming quaternion normalised then w is less than 1, so term always positive.
-//      if (s < 0.001) { // test to avoid divide by zero, s is always positive due to sqrt
-//        // if s close to zero then direction of axis not important. If it is important that axis is normalised then replace with x=1; y=z=0;
-//        payload.axis = new Quaternion(q.x, q.y. q.z);
-//      } else {
-//        payload.axis = new Quaternion(q.x/s, q.y/s. q.z/s);
-//      }   
-//    }
-//
-//    const {axis, angle} = quaternionToAxisAngle(rotationQuaternion);
+    const dorientation = new Euler(asset.di*dt + asset.ddi*1/2*dt*dt,
+                                         asset.dj*dt + asset.ddj*1/2*dt*dt,
+                                         asset.dk*dt + asset.ddk*1/2*dt*dt);
+    orientation.multiply(new Quaternion().setFromEuler(dorientation));
 
     if (asset.object) {
       asset.object.position.x = x;
