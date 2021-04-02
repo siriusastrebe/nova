@@ -64,6 +64,10 @@ class UserInputsService {
     const socketId = c.connection.socketId;
     const userInput = this.users[socketId];
 
+    // Calculating asset tick resets dt for all calculations, ensuring new user inputs aren't multiplied by a large dt
+    const asset = await app.service('assets').getBySocket(socketId);
+    calculateAssetTick(asset);
+
     for (let key in params) {
       const value = params[key];
       if (key in userInput) {
@@ -71,8 +75,9 @@ class UserInputsService {
       }
     }
 
+
     // Send the changes immediately
-    //const asset = await app.service('assets').getBySocket(socketId);
+
     //if (asset) {
     //  const changes = calculateAssetTick(asset);
     //setTimeout(async() => {
@@ -112,11 +117,11 @@ class AssetsService {
       i: data.i,
       j: data.j,
       k: data.k,
-      dw: data.dw,
+      da: data.da,
       di: data.di,
       dj: data.dj,
       dk: data.dk,
-      ddw: data.ddw,
+      dda: data.dda,
       ddi: data.ddi,
       ddj: data.ddj,
       ddk: data.ddk,
@@ -203,11 +208,11 @@ app.on('connection', (connection, b) => {
     i: 0,
     j: 0,
     k: 0,
-    dw: 1,
+    da: 1,
     di: 0,
     dj: 0,
     dk: 0,
-    ddw: 1,
+    dda: 0,
     ddi: 0,
     ddj: 0,
     ddk: 0,
@@ -238,15 +243,15 @@ const gameLoop = setInterval(async () => {
 
     setTimeout(() => {
       app.service('assets').emit('networktick', allChanges);
-    }, Math.random() * 200);
+    }, Math.random() * 100);
   }
-}, 400);
+}, 1000);
 
 function calculateAssetForces(asset, userInput) {
   const dragRadians = 0.4;
   const userInputTorqueRadians = 1;
   const dragRatio = 0.001;
-  const engineSpeed = 100;
+  const engineSpeed = 1000;
 
   // Position/Velocity/Acceleration
   const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
@@ -261,6 +266,7 @@ function calculateAssetForces(asset, userInput) {
   drag.multiplyScalar(dragRatio);
   force.add(drag);
 
+/*
   // Orientation/Rotation/Torque
   const rotation = new Three.Quaternion(asset.di, asset.dj, asset.dk, asset.dw);
   // let torque = new Three.Quaternion(asset.ddi, asset.ddj, asset.ddk, asset.ddw);
@@ -273,21 +279,25 @@ function calculateAssetForces(asset, userInput) {
   const smallInverseRotation = new Three.Quaternion().identity().rotateTowards(rotation.conjugate(), dragRadians);
   torque.multiply(smallInverseRotation);
   torque.normalize();
+*/
+
+  const torqueAxis = new Three.Vector3(userInput.back - userInput.forward, userInput.left - userInput.right, userInput.clockwise - userInput.counterclockwise).normalize();
+  const input = (userInput.back || userInput.forward || userInput.left || userInput.right || userInput.clockwise || userInput.counterclockwise);
 
   asset.ddx = force.x * engineSpeed;
   asset.ddy = force.y * engineSpeed;
   asset.ddz = force.z * engineSpeed;
 
-  asset.ddw = torque._w;
-  asset.ddi = torque._x;
-  asset.ddj = torque._y;
-  asset.ddk = torque._z;
+  asset.dda = (input) * 1;
+  asset.ddi = torqueAxis.x;
+  asset.ddj = torqueAxis.y;
+  asset.ddk = torqueAxis.z;
 
   return changes = {
     ddx: asset.ddx,
     ddy: asset.ddy,
     ddz: asset.ddz,
-    ddw: asset.ddw,
+    dda: asset.dda,
     ddi: asset.ddi,
     ddj: asset.ddj,
     ddk: asset.ddk
@@ -306,24 +316,47 @@ function calculateAssetTick(asset) {
   asset.dy = asset.dy + asset.ddy * dt;
   asset.dz = asset.dz + asset.ddz * dt;
 
-  const torque = new Three.Quaternion(asset.ddi, asset.ddj, asset.ddk, asset.ddw);
-  const rotation = new Three.Quaternion(asset.di, asset.dj, asset.dk, asset.dw);
+  // const torque = new Three.Quaternion(asset.ddi, asset.ddj, asset.ddk, asset.ddw);
   const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
 
-  const rotationCopy = new Three.Quaternion().copy(rotation);
+  const rotationAxis = new Three.Vector3(asset.di, asset.dj, asset.dk);
+  const rotationAngle = asset.da * dt;
 
-  const orientationCopy1 = new Three.Quaternion().copy(orientation);
-  orientation.rotateTowards(orientationCopy1.multiply(rotation), dt);          // Add rotational velocity * dt
+  const torqueAxis = new Three.Vector3(asset.ddi, asset.ddj, asset.ddk);
+  const torqueAngle = 1/2 * asset.dda * dt * dt;
 
-  const orientationCopy2 = new Three.Quaternion().copy(orientation);
-  orientation.rotateTowards(orientationCopy2.multiply(torque), 1/2 * dt * dt); // Add 1/2 * angular acceleration * dt^2
+  const rotationQuaternion = new Three.Quaternion().setFromAxisAngle(rotationAxis, rotationAngle);
+  torqueQuaternion = new Three.Quaternion().setFromAxisAngle(torqueAxis, torqueAngle);
 
-  rotation.rotateTowards(rotationCopy.multiply(torque), dt);
+  orientation.multiply(rotationQuaternion);
+  orientation.multiply(torqueQuaternion);
+  orientation.normalize();
 
-  asset.dw = rotation._w;
-  asset.di = rotation._x;
-  asset.dj = rotation._y;
-  asset.dk = rotation._z;
+  rotationQuaternion.multiply(torqueQuaternion);
+  function quaternionToAxisAngle(q) {
+    // https://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToAngle/index.htm
+    const payload = {};
+    q.normalize();
+
+    payload.angle = 2 * Math.acos(q._w);
+    const s = Math.sqrt(1-q._w*q._w); // assuming quaternion normalised then w is less than 1, so term always positive.
+    if (s < 0.001) { // test to avoid divide by zero, s is always positive due to sqrt
+
+      // if s close to zero then direction of axis not important. If it is important that axis is normalised then replace with x=1; y=z=0;
+      payload.axis = new Three.Vector3(q._x, q._y, q._z);
+    } else {
+      payload.axis = new Three.Vector3(q._x/s, q._y/s, q._z/s);
+    }
+    return payload;
+  }
+
+  const {axis, angle} = quaternionToAxisAngle(rotationQuaternion);
+console.log(orientation);
+
+  asset.da = angle;
+  asset.di = axis.x;
+  asset.dj = axis.y;
+  asset.dk = axis.z;
 
   asset.w = orientation._w;
   asset.i = orientation._x;
@@ -341,7 +374,7 @@ function calculateAssetTick(asset) {
     dy: asset.dy,
     dz: asset.dz,
 
-    dw: asset.dw,
+    da: asset.da,
     di: asset.di,
     dj: asset.dj,
     dk: asset.dk,

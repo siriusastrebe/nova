@@ -63,6 +63,7 @@ function onWindowResize(){
   renderer.setSize( window.innerWidth, windowHeight() );
 }
 
+let t = new Date();
 
 function render() {
   // Trick to allow multiple scenes on a single renderer
@@ -82,19 +83,39 @@ function render() {
     let y = asset.y + asset.dy * dt + 1/2 * asset.ddy * dt * dt;
     let z = asset.z + asset.dz * dt + 1/2 * asset.ddz * dt * dt;
 
-    const torque = new Quaternion(asset.ddi, asset.ddj, asset.ddk, asset.ddw);
-    const rotation = new Quaternion(asset.di, asset.dj, asset.dk, asset.dw);
     const orientation = new Quaternion(asset.i, asset.j, asset.k, asset.w);
 
-    const rotationCopy = new Quaternion().copy(rotation);
+    const rotationAxis = new Vector3(asset.di, asset.dj, asset.dk);
+    const rotationAngle = asset.da * dt; 
 
-    const orientationCopy1 = new Quaternion().copy(orientation);
-    orientation.rotateTowards(orientationCopy1.multiply(rotation), dt);          // Add rotational velocity * dt
+    const torqueAxis = new Vector3(asset.ddi, asset.ddj, asset.ddk);
+    const torqueAngle = 1/2 * asset.dda * dt * dt; 
 
-    const orientationCopy2 = new Quaternion().copy(orientation);
-    orientation.rotateTowards(orientationCopy2.multiply(torque), 1/2 * dt * dt); // Add 1/2 * angular acceleration * dt^2
+    const rotationQuaternion = new Quaternion().setFromAxisAngle(rotationAxis, rotationAngle);
+    const torqueQuaternion = new Quaternion().setFromAxisAngle(torqueAxis, torqueAngle);
 
-    rotation.rotateTowards(rotationCopy.multiply(torque), dt);
+    orientation.multiply(rotationQuaternion);
+    orientation.multiply(torqueQuaternion);
+    orientation.normalize();
+
+    rotationQuaternion.multiply(torqueQuaternion);
+
+//    function quaternionToAxisAngle(q) {
+//      // https://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToAngle/index.htm
+//      const payload = {}; 
+//      q.normalize();
+//  
+//      payload.angle = 2 * Math.acos(q.w);
+//      double s = Math.sqrt(1-q.w*q.w); // assuming quaternion normalised then w is less than 1, so term always positive.
+//      if (s < 0.001) { // test to avoid divide by zero, s is always positive due to sqrt
+//        // if s close to zero then direction of axis not important. If it is important that axis is normalised then replace with x=1; y=z=0;
+//        payload.axis = new Quaternion(q.x, q.y. q.z);
+//      } else {
+//        payload.axis = new Quaternion(q.x/s, q.y/s. q.z/s);
+//      }   
+//    }
+//
+//    const {axis, angle} = quaternionToAxisAngle(rotationQuaternion);
 
     if (asset.object) {
       asset.object.position.x = x;
