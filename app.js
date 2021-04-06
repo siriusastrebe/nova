@@ -72,9 +72,12 @@ class UserInputsService {
     }
 
 
-    // Send the changes immediately
+    //const asset = await app.service('assets').getBySocket(socketId);
     //if (asset) {
     //  const changes = calculateAssetTick(asset);
+    //}
+
+    // Send the changes immediately
     //setTimeout(async() => {
     //  await app.service('assets').patch(asset.id, changes);
     //  }, 100);
@@ -224,9 +227,10 @@ const gameLoop = setInterval(async () => {
   if (assets.length > 0) {
     const allChanges = assets.map((asset) => {
       const changes = calculateAssetTick(asset);
-      const forces = calculateAssetForces(asset, userInputs[asset.socketId]);
 
+      const forces = calculateAssetForces(asset, userInputs[asset.socketId]);
       Object.keys(forces).map((key) => { changes[key] = forces[key] });
+
       changes.id = asset.id;
 
       return changes;
@@ -234,15 +238,15 @@ const gameLoop = setInterval(async () => {
 
     setTimeout(() => {
       app.service('assets').emit('networktick', allChanges);
-    }, 100)//(Math.random() * 50) + 50);
+    },0); // (Math.random() * 50) + 50);
   }
-}, 200);
+}, 100);
 
 function calculateAssetForces(asset, userInput) {
-  const angularDrag = 1;
-  const torqueRadians = 2;
-  const dragRatio = 0.001;
-  const engineSpeed = 1000;
+  const angularDrag = 3;
+  const torqueRadians = 4;
+  const dragRatio = 0.0008;
+  const engineSpeed = 2000;
 
   // Position/Velocity/Acceleration
   const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
@@ -256,7 +260,6 @@ function calculateAssetForces(asset, userInput) {
   const drag = new Three.Vector3().copy(velocity).negate();
   drag.multiplyScalar(dragRatio);
   force.add(drag);
-
 
 /*
   // Orientation/Rotation/Torque
@@ -318,10 +321,17 @@ function calculateAssetTick(asset) {
 
   // const torque = new Three.Quaternion(asset.ddi, asset.ddj, asset.ddk, asset.ddw);
   const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
-  const dorientation = new Three.Euler(asset.di*dt + asset.ddi*1/2*dt*dt, 
-                                       asset.dj*dt + asset.ddj*1/2*dt*dt,
-                                       asset.dk*dt + asset.ddk*1/2*dt*dt);
+  const di = asset.di*dt + asset.ddi*dt*dt/2;
+  const dj = asset.dj*dt + asset.ddj*dt*dt/2;
+  const dk = asset.dk*dt + asset.ddk*dt*dt/2;
+
+  const ei = di;
+  const ej = dj;
+  const ek = dk;
+
+  const dorientation = new Three.Euler(ei, ej, ek, 'XYZ');
   orientation.multiply(new Three.Quaternion().setFromEuler(dorientation));
+  orientation.normalize();
 
   asset.w = orientation._w;
   asset.i = orientation._x;

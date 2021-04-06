@@ -1,0 +1,17 @@
+body {
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+}
+
+#darkness {
+  background-color: black;
+}
+
+#vitals {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1;
+  color: rosybrown;
+}

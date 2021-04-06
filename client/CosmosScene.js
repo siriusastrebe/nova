@@ -5,14 +5,15 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import starsData from './stars.js';
 console.log(starsData);
 
-window.addEventListener( 'resize', onWindowResize, false );
-
+// ----------------------------------------------------------------
+// Initialize the scene
+// ----------------------------------------------------------------
 let camera, scene, sceneStars, renderer, controls;
 let stars = [];
-let width = window.innerWidth - 30;
-let height = windowHeight();
-let aspect = width / height;
+let windowWidth = () => window.innerWidth;
+let windowHeight = () => window.innerHeight;
 let cameraDistance = 800;
+
 
 let textureLoader = new TextureLoader();
 let objLoader = new OBJLoader();
@@ -20,22 +21,24 @@ let objLoader = new OBJLoader();
 let assets = {};
 let controlledAsset;
 
+
 init();
 
 function init() {
   scene = new Scene();
   sceneStars = new Scene();
 
+
   const fov = 75;
   const near = 0.1;
   const far = 200000;
-  camera = new PerspectiveCamera(fov, aspect, near, far);
-  camera.position.set(0, 0, 0);
+  camera = new PerspectiveCamera(fov, windowWidth() / windowHeight(), near, far);
+  camera.position.set(0, 0, -300);
 
   renderer = new WebGLRenderer( { antialias: true } );
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = PCFSoftShadowMap;
-  renderer.setSize(width , height);
+  renderer.setSize(windowWidth(), windowHeight());
 
   createEarth();
   createMoon();
@@ -48,29 +51,27 @@ function init() {
   sceneStars.add(worldAxis);
 
   render();
-  requestAnimationFrame(animate);
+  requestAnimationFrame(() => animate(0));
 
   //renderer.domElement.addEventListener('click', onClick, false)
   controls = new OrbitControls( camera, renderer.domElement );
   controls.update();
 }
-function windowHeight() {
-  return Math.max(window.innerHeight * 1.05, 600);
-}
+
+window.addEventListener( 'resize', onWindowResize, false );
 function onWindowResize(){
-  camera.aspect = (window.innerWidth - 30) / windowHeight();
+  camera.aspect = windowWidth() / windowHeight();
   camera.updateProjectionMatrix();
-  renderer.setSize( window.innerWidth, windowHeight() );
+  renderer.setSize(windowWidth(), windowHeight());
 }
 
-let t = new Date();
-
+// ----------------------------------------------------------------
+// Game Loop
+// ----------------------------------------------------------------
 function render() {
   // Trick to allow multiple scenes on a single renderer
   renderer.autoClear = false;
   renderer.clear();
-
-//  averagedt = (averagedt * 0.8) + (dt * (1-0.8));
 
   // Update each asset's position and rotation by dt, the fraction of a second that has elapsed since last render()
   Object.keys(assets).forEach((id) => {
@@ -79,15 +80,22 @@ function render() {
     // asset.t stores the local timestamp of when the asset was last updated with server gamestate
     let dt = (new Date() - asset.t) / 1000;
 
-    let x = asset.x + asset.dx * dt + 1/2 * asset.ddx * dt * dt;
-    let y = asset.y + asset.dy * dt + 1/2 * asset.ddy * dt * dt;
-    let z = asset.z + asset.dz * dt + 1/2 * asset.ddz * dt * dt;
+    let x = asset.x + asset.dx * dt + asset.ddx * dt * dt / 2;
+    let y = asset.y + asset.dy * dt + asset.ddy * dt * dt / 2;
+    let z = asset.z + asset.dz * dt + asset.ddz * dt * dt / 2;
+
+    const di = asset.di*dt + asset.ddi*dt*dt/2;
+    const dj = asset.dj*dt + asset.ddj*dt*dt/2;
+    const dk = asset.dk*dt + asset.ddk*dt*dt/2;
+
+    const ei = di;
+    const ej = dj;
+    const ek = dk;
 
     const orientation = new Quaternion(asset.i, asset.j, asset.k, asset.w);
-    const dorientation = new Euler(asset.di*dt + asset.ddi*1/2*dt*dt,
-                                         asset.dj*dt + asset.ddj*1/2*dt*dt,
-                                         asset.dk*dt + asset.ddk*1/2*dt*dt);
+    const dorientation = new Euler(ei, ej, ek, 'XYZ');
     orientation.multiply(new Quaternion().setFromEuler(dorientation));
+    orientation.normalize();
 
     if (asset.object) {
       asset.object.position.x = x;
@@ -123,21 +131,41 @@ function render() {
   renderer.render(sceneStars, camera);
   renderer.render(scene, camera);
 }
-function animate() {
-  render();
-  requestAnimationFrame(animate);
+let lastFrame = new Date();
+let lastFps = new Date();
+function animate(count) {
+  const delta = new Date() - lastFrame;
+  lastFrame = new Date();
+
+  if (new Date() - lastFps >= 1000) {
+    document.getElementById('fps').innerHTML = Math.round(count);
+    count = 0;
+    lastFps = new Date();
+  }
+
+  if (delta < 200) {
+    render();
+    requestAnimationFrame(() => animate(count+1));
+  } else {
+    // This is to prevent page freezing
+    console.log('Page freeze detected.');
+    setTimeout(() => {
+      render();
+      requestAnimationFrame(() => animate(count+1));
+    }, 160);
+  }
 }
 
 
-
-
-
+// ----------------------------------------------------------------
 // Export functions
+// ----------------------------------------------------------------
 export function renderSpace() {
   document.getElementById("cosmosscene").appendChild( renderer.domElement );
 }
 
 export function addAsset(asset) {
+console.log('Adding asset', asset);
   let model;
 
   assets[asset.id] = asset;
@@ -268,11 +296,11 @@ function createStars() {
   for (let i=0; i<starsData.length; i++) {
     let data = starsData[i];
 
-    let size = 100 - data['Mag'] * 10;
+    let size = 60 + data['Mag'] * 30;
     let sides = 7;
 
     if (data['Mag'] < -1) {
-      size = 180;
+      size = 320;
       sides = 9;
     }
 

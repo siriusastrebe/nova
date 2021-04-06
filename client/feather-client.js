@@ -24,6 +24,23 @@ export default function initializeFeathers(addAsset, updateAsset, setControlledA
 
   feathers.service('assets').find().then((assets) => {
     assets.forEach((asset) => {
+      const existing = assets.find(a => a.id === asset.id)
+      if (!existing) {
+        addAsset(asset);
+        assets.push(asset);
+
+        if (asset.socketId === socket.id) {
+          controlling = asset;
+          setControlledAsset(controlling);
+        }
+      }
+    });
+  });
+
+  feathers.service('assets').on('created', (asset) => {
+    console.log('Asset created', asset);
+    const existing = assets.find(a => a.id === asset.id)
+    if (!existing) {
       addAsset(asset);
       assets.push(asset);
 
@@ -31,17 +48,6 @@ export default function initializeFeathers(addAsset, updateAsset, setControlledA
         controlling = asset;
         setControlledAsset(controlling);
       }
-    });
-  });
-
-  feathers.service('assets').on('created', (asset) => {
-    console.log('Asset created', asset);
-    addAsset(asset);
-    assets.push(asset);
-
-    if (asset.socketId === socket.id) {
-      controlling = asset;
-      setControlledAsset(controlling);
     }
   });
 
