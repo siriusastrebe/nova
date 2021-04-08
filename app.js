@@ -10,6 +10,7 @@ const feathersKnex    = require('feathers-knex');
 const authService     = require('./feathers/auth');
 const accountsService = require('./feathers/services/accounts/accounts.service.js');
 const Three           = require('three'); 
+const sol             = require('./solar-systems/sol.js');
 const knex            = require('knex')({
   client: 'pg',
   connection: {
@@ -121,6 +122,8 @@ class AssetsService {
       ddi: data.ddi,
       ddj: data.ddj,
       ddk: data.ddk,
+      type: data.type,
+      subtype: data.subtype,
       socketId: data.socketId
     }
 
@@ -210,11 +213,20 @@ app.on('connection', (connection, b) => {
     ddi: 0,
     ddj: 0,
     ddk: 0,
+    type: 'player',
+    subtype: 'ship',
     socketId: connection.socketId
   }).then(asset => console.log('New socket with id: ', connection.socketId, asset));
 });
 app.service('assets').publish((data, hook) => {
   return app.channel('everybody');
+});
+
+// ---- Initializing environment ----
+const solarSystem = sol.assets();
+solarSystem.map(async (i) => {
+  const asset = await app.service('assets').create(i);
+  console.log('Created', asset);
 });
 
 // ---- Game Loop ----
@@ -226,9 +238,13 @@ const gameLoop = setInterval(async () => {
 
   if (assets.length > 0) {
     const allChanges = assets.map((asset) => {
-      const changes = calculateAssetTick(asset);
+      let forces = {};
 
-      const forces = calculateAssetForces(asset, userInputs[asset.socketId]);
+      const changes = calculateAssetTick(asset);
+      const userInput = userInputs[asset.socketId];
+      if (userInput) {
+        forces = calculateAssetForces(asset, userInput);
+      }
       Object.keys(forces).map((key) => { changes[key] = forces[key] });
 
       changes.id = asset.id;
@@ -245,8 +261,8 @@ const gameLoop = setInterval(async () => {
 function calculateAssetForces(asset, userInput) {
   const angularDrag = 3;
   const torqueRadians = 4;
-  const dragRatio = 0.0008;
-  const engineSpeed = 2000;
+  const dragRatio = 0.0001;
+  const engineSpeed = 20000;
 
   // Position/Velocity/Acceleration
   const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
@@ -260,21 +276,6 @@ function calculateAssetForces(asset, userInput) {
   const drag = new Three.Vector3().copy(velocity).negate();
   drag.multiplyScalar(dragRatio);
   force.add(drag);
-
-/*
-  // Orientation/Rotation/Torque
-  const rotation = new Three.Quaternion(asset.di, asset.dj, asset.dk, asset.dw);
-  // let torque = new Three.Quaternion(asset.ddi, asset.ddj, asset.ddk, asset.ddw);
-
-  const ninetyDegreeUserInputs = new Three.Quaternion().setFromEuler(new Three.Euler(userInput.back - userInput.forward, userInput.left - userInput.right, userInput.clockwise - userInput.counterclockwise, 'XYZ'));
-  const torque = new Three.Quaternion().identity().rotateTowards(ninetyDegreeUserInputs, userInputTorqueRadians);
-
-  // Automatic rotational drag
-  const rotationRadians = rotation.angleTo(new Three.Quaternion().identity());
-  const smallInverseRotation = new Three.Quaternion().identity().rotateTowards(rotation.conjugate(), dragRadians);
-  torque.multiply(smallInverseRotation);
-  torque.normalize();
-*/
 
 
   // Orientation/Rotation/Torque
@@ -363,68 +364,6 @@ function calculateAssetTick(asset) {
     k: asset.k
   }
 }
-
-//function calculateAssetChanges(asset, userInput, ignoreUserInputForces) {
-//
-//  const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
-//
-//  let rotation = new Three.Quaternion(asset.vi, asset.vj, asset.vk, asset.vw);
-//  let force = new Three.Vector3(0, 0, 0);
-//  if (!ignoreUserInputForces) {
-//    const drotation = new Three.Quaternion().identity().rotateTowards(rotation, rotation.angleTo(new Three.Quaternion().identity()) * dt);
-//    orientation.multiply(drotation);
-//    orientation.normalize();
-//  }
-//
-//  // TODO: Use pythagorean distance
-//  const changes = {
-//    vx: asset.vx * 0.98 + force.x * 80,
-//    vy: asset.vy * 0.98 + force.y * 80,
-//    vz: asset.vz * 0.98 + force.z * 80,
-//
-//    x: asset.x + asset.vx * dt,
-//    y: asset.y + asset.vy * dt,
-//    z: asset.z + asset.vz * dt,
-//
-//    w: orientation._w,
-//    i: orientation._x,
-//    j: orientation._y,
-//    k: orientation._z,
-//
-//    vw: rotation._w,
-//    vi: rotation._x,
-//    vj: rotation._y,
-//    vk: rotation._z
-//  };
-//
-//  return changes;
-//}
-
-
-//function calculateUserInputTorque(userInput, asset) {
-//  const rotation = new Three.Quaternion(asset.vi, asset.vj, asset.vk, asset.vw);
-//  const identity = new Three.Quaternion().identity();
-//
-//  if (userInput) {
-//    const quarterRotations = new Three.Quaternion().setFromEuler(new Three.Euler(userInput.back - userInput.forward, userInput.left - userInput.right, userInput.clockwise - userInput.counterclockwise, 'XYZ'));
-//    const nudge = new Three.Quaternion().identity().rotateTowards(quarterRotations, quarterRotations.angleTo(identity) / 30);
-//    rotation.multiply(nudge);
-//  }
-//
-//  // Dampening effect to set a max rotation speed
-//  rotation.rotateTowards(identity, rotation.angleTo(identity) / 50);
-//
-//  rotation.normalize();
-//
-//  return rotation;
-//}
-//function calculateUserInputForce(userInput, asset) {
-//  const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
-//  let force = new Three.Vector3(0, 0, 0);
-//  force = new Three.Vector3(0, 0, userInput.space ? 1 : 0);
-//  force.applyQuaternion(orientation);
-//  return force;
-//}
 
 
 // ---- Running the app ----
