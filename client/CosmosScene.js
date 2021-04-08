@@ -172,29 +172,32 @@ export async function addAsset(asset) {
   let model;
   let object;
   let material;
+  let texture;
   let textures = [];
 
   // Load all textures
   if (asset.texture) {
-    textures = [await promisify(textureLoader.load, textureLoader)(asset.texture)];
+    texture = await promisify(textureLoader.load, textureLoader)(asset.texture);
   }
-  if (asset.textures) {
-    const t = await Promise.all(textures.map(promisify(textureLoader.load, textureLoader)(asset.textures)))
-    textures.concat(t);
-  }
+  //if (asset.textures) {
+  //  const p = promisify(textureLoader.load, textureLoader);
+  //  textures = await Promise.all(asset.textures.map(p));
+  //}
 
   // Material
-  if (asset.type === 'player') {
-    material = new MeshBasicMaterial({map: textures[0]});
-  } else if (asset.type === 'environment') {
-    material = new MeshLambertMaterial({map: textures[0]});
+  if (texture) {
+    if (asset.type === 'player') {
+      material = new MeshBasicMaterial({map: texture});
+    } else if (asset.type === 'environment') {
+      material = new MeshLambertMaterial({map: texture});
+    }
   }
 
   // Object & Geometry
   if (asset.obj) {
     if (asset.obj === 'sphere') {
-      let geometry = new SphereBufferGeometry(100, 64, 64);
-      object = new Mesh( geometry, material );
+      let geometry = new SphereBufferGeometry(1000, 64, 64);
+      object = new Mesh(geometry, material);
     } else {
       object = await promisify(objLoader.load, objLoader)(asset.obj);
 
@@ -205,6 +208,11 @@ export async function addAsset(asset) {
         }
       });
     }
+  }
+
+  if (asset.name === 'Earth') {
+    console.log(object, asset.name)
+    createSun(object);
   }
 
   asset.object = object;
@@ -269,29 +277,30 @@ export function setControlledAsset(asset) {
 //  });
 //}
 //
-//function createSun(earth) {
-//  let light = new SpotLight( 0xffffff, 3, 0, Math.PI / 256);
-//  light.target = earth;
-//  light.castShadow = true;
-//  light.shadow.camera.near = 0.5;
-//  light.shadow.camera.far = 200000;
-//  light.position.set(100000, 0, 0);
-//  scene.add(light);
-//
-//  let lensflare = new Lensflare();
-//
-//  let textureFlare0 = textureLoader.load( "/public/lensflare0.png" );
-//  let textureFlare3 = textureLoader.load( "/public/lensflare3.png" );
-//  let textureFlare4 = textureLoader.load( "/public/lensflare4.png" );
-//
-//  lensflare.addElement( new LensflareElement( textureFlare0, 700, 0 ) );
-//  lensflare.addElement( new LensflareElement( textureFlare3, 60, 0.6 ) );
-//  lensflare.addElement( new LensflareElement( textureFlare3, 70, 0.7 ) );
-//  lensflare.addElement( new LensflareElement( textureFlare3, 120, 0.9 ) );
-//  lensflare.addElement( new LensflareElement( textureFlare3, 70, 1 ) );
-//
-//  light.add(lensflare);
-//}
+function createSun(target) {
+  //let light = new SpotLight( 0xffffff, 3, 0, Math.PI / 256);
+  //light.target = target;
+  //light.castShadow = true;
+  //light.shadow.camera.near = 0.5;
+  //light.shadow.camera.far = 200000;
+  //light.position.set(100000, 0, 0);
+  let light = new AmbientLight(0xffffff, 1);
+  scene.add(light);
+
+  let lensflare = new Lensflare();
+
+  let textureFlare0 = textureLoader.load( "/public/lensflare0.png" );
+  let textureFlare3 = textureLoader.load( "/public/lensflare3.png" );
+  let textureFlare4 = textureLoader.load( "/public/lensflare4.png" );
+
+  lensflare.addElement( new LensflareElement( textureFlare0, 700, 0 ) );
+  lensflare.addElement( new LensflareElement( textureFlare3, 60, 0.6 ) );
+  lensflare.addElement( new LensflareElement( textureFlare3, 70, 0.7 ) );
+  lensflare.addElement( new LensflareElement( textureFlare3, 120, 0.9 ) );
+  lensflare.addElement( new LensflareElement( textureFlare3, 70, 1 ) );
+
+  light.add(lensflare);
+}
 //function createMoon() {
 //  textureLoader.load('/public/usgsmoon.jpg', (texture) => {
 //    const geometry = new SphereBufferGeometry( 50, 32, 32 );

@@ -7,7 +7,7 @@ exports.assets = function () {
     texture: '/public/land_ocean_ice_cloud_1024.jpg',
     x: 0,
     y: 0,
-    z: -10000,
+    z: 1000,
     scale: 200,
   }, {
     name: 'Moon',
@@ -17,7 +17,7 @@ exports.assets = function () {
     texture: '/public/usgsmoon.jpg',
     x: 0,
     y: 0,
-    z: 2000,
+    z: 200,
     scale: 30,
   }, {
     name: 'Sun',
