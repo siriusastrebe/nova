@@ -29,9 +29,9 @@ function init() {
   sceneStars = new Scene();
 
 
-  const fov = 75;
+  const fov = 70;
   const near = 0.1;
-  const far = 200000;
+  const far = Number.MAX_SAFE_INTEGER;
   camera = new PerspectiveCamera(fov, windowWidth() / windowHeight(), near, far);
   camera.position.set(0, 0, -300);
 
@@ -167,9 +167,13 @@ export function renderSpace() {
 export async function addAsset(asset) {
   console.log('Adding asset', asset);
 
+  const tl = promisify(textureLoader.load, textureLoader);
+  const ol = promisify(objLoader.load, objLoader);
+
   assets[asset.id] = asset;
 
   let model;
+  let bump;
   let object;
   let material;
   let texture;
@@ -177,29 +181,45 @@ export async function addAsset(asset) {
 
   // Load all textures
   if (asset.texture) {
-    texture = await promisify(textureLoader.load, textureLoader)(asset.texture);
+    texture = await tl(asset.texture);
   }
+
   //if (asset.textures) {
   //  const p = promisify(textureLoader.load, textureLoader);
   //  textures = await Promise.all(asset.textures.map(p));
   //}
 
-  // Material
+  // Load bumpmap
+  if (asset.bump) {
+    bump = await tl(asset.bump);
+  }
+
+  // Load Material
   if (texture) {
+    const options = {map: texture}
+    if (bump) {
+      options.bumpMap = bump;
+      options.bumpScale = 0.04;
+      options.reflectivity = 0.3; 
+      options.shininess = 0.3;
+      options.displacementMap = bump;
+      options.displacementScale = 0.06;
+    }
+
     if (asset.type === 'player') {
-      material = new MeshBasicMaterial({map: texture});
+      material = new MeshBasicMaterial(options);
     } else if (asset.type === 'environment') {
-      material = new MeshLambertMaterial({map: texture});
+      material = new MeshLambertMaterial(options);
     }
   }
 
   // Object & Geometry
   if (asset.obj) {
     if (asset.obj === 'sphere') {
-      let geometry = new SphereBufferGeometry(1000, 64, 64);
+      let geometry = new SphereBufferGeometry(1000, 128, 128);
       object = new Mesh(geometry, material);
     } else {
-      object = await promisify(objLoader.load, objLoader)(asset.obj);
+      object = await ol(asset.obj);
 
       // Apply material to mesh
       object.traverse(function (child) {
@@ -210,8 +230,11 @@ export async function addAsset(asset) {
     }
   }
 
+  if (asset.scale !== undefined) {
+    object.scale.x = object.scale.y = object.scale.z = asset.scale;
+  }
+
   if (asset.name === 'Earth') {
-    console.log(object, asset.name)
     createSun(object);
   }
 

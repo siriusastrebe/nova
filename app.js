@@ -105,6 +105,7 @@ class AssetsService {
       t: new Date(),
       obj: data.obj,
       texture: data.texture,
+      bump: data.bump,
       x: data.x !== undefined ? data.x : 0,
       y: data.y !== undefined ? data.y : 0,
       z: data.z !== undefined ? data.z : 0,
@@ -124,6 +125,7 @@ class AssetsService {
       ddi: data.ddi !== undefined ? data.ddi : 0,
       ddj: data.ddj !== undefined ? data.ddj : 0,
       ddk: data.ddk !== undefined ? data.ddk : 0,
+      scale: data.scale,
       type: data.type,
       subtype: data.subtype,
       socketId: data.socketId
