@@ -1,4 +1,4 @@
-import { TextureLoader, PlaneGeometry, Scene, PerspectiveCamera, Vector3, Matrix4, WebGLRenderer, PCFSoftShadowMap, SphereBufferGeometry, Mesh, MeshLambertMaterial, SpotLight, LineBasicMaterial, AmbientLight, Line, MeshBasicMaterial, MeshPhongMaterial, BufferGeometry, DoubleSide, Euler, Quaternion, AxesHelper, GridHelper } from 'three';
+import { TextureLoader, BufferGeometry, BufferAttribute, PlaneGeometry, Scene, PerspectiveCamera, Vector3, Matrix4, WebGLRenderer, PCFSoftShadowMap, SphereBufferGeometry, Mesh, MeshLambertMaterial, SpotLight, LineBasicMaterial, AmbientLight, Line, MeshBasicMaterial, MeshPhongMaterial, DoubleSide, Euler, Quaternion, AxesHelper, GridHelper, MathUtils, Float32BufferAttribute, PointsMaterial, Points, ShaderMaterial, AdditiveBlending, Color } from 'three';
 import { Lensflare, LensflareElement } from 'three/examples/jsm/objects/Lensflare';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -209,7 +209,7 @@ export async function addAsset(asset) {
     if (asset.type === 'player') {
       material = new MeshBasicMaterial(options);
     } else if (asset.type === 'environment') {
-      material = new MeshLambertMaterial(options);
+      material = new MeshPhongMaterial(options);
     }
   }
 
@@ -349,31 +349,73 @@ function createSun(target) {
 function createStars() {
   let light = new AmbientLight(0xffffff, 1);
   sceneStars.add(light);
-  console.log('Stars: ', starsData.length);
 
-  for (let i=0; i<starsData.length; i++) {
-    let data = starsData[i];
+  const vertices = [];
+  const sizes = [];
+  const colors = [];
 
-    let size = 60 + data['Mag'] * 30;
-    let sides = 7;
+  const uniforms = {
+    pointTexture: { value: new TextureLoader().load( "/public/spark1.png" ) }
+  };
 
-    if (data['Mag'] < -1) {
-      size = 320;
-      sides = 9;
-    }
+  const shaderMaterial = new ShaderMaterial( {
+    uniforms: uniforms,
+    vertexShader: document.getElementById( 'vertexshader' ).textContent,
+    fragmentShader: document.getElementById( 'fragmentshader' ).textContent,
 
-    let geometry = new SphereBufferGeometry(size, sides, sides);
-    let color = approximateStarColor(Number(data['ColorIndex']));
-    let material = new MeshPhongMaterial( {color: color} );
-    let sphere = new Mesh( geometry, material );
+    blending: AdditiveBlending,
+    depthTest: false,
+    transparent: true,
+    vertexColors: true
+  } );
 
-    position(data['Dec'], data['RA'], sphere);
-    sphere.userData['starData'] = data;
+  for ( let i = 0; i < 10000; i ++ ) {
+    const x = MathUtils.randFloatSpread( 2000 );
+    const y = MathUtils.randFloatSpread( 2000 );
+    const z = MathUtils.randFloatSpread( 2000 );
+    vertices.push( x, y, z );
+    sizes.push(300);
 
-    stars.push(sphere);
-    sceneStars.add(sphere);
+    const color = new Color();
+    color.setHSL( Math.random(), 1.0, 0.5 );
+    colors.push( color.r, color.g, color.b );
   }
+
+  const geometry = new BufferGeometry();
+  geometry.setAttribute( 'position', new Float32BufferAttribute( vertices, 3 ) );
+  geometry.setAttribute( 'size', new Float32BufferAttribute( sizes, 1 ) );
+  geometry.setAttribute( 'color', new Float32BufferAttribute( colors, 3 ) );
+
+  //const material = new PointsMaterial( { color: 0xffffff } );
+
+  const points = new Points( geometry, shaderMaterial );
+
+  scene.add( points );
 }
+
+//  for (let i=0; i<starsData.length; i++) {
+//    let data = starsData[i];
+//
+//    let size = 60 + data['Mag'] * 30;
+//    let sides = 7;
+//
+//    if (data['Mag'] < -1) {
+//      size = 320;
+//      sides = 9;
+//    }
+//
+//    let geometry = new SphereBufferGeometry(size, sides, sides);
+//    let color = approximateStarColor(Number(data['ColorIndex']));
+//    let material = new MeshPhongMaterial( {color: color} );
+//    let sphere = new Mesh( geometry, material );
+//
+//    position(data['Dec'], data['RA'], sphere);
+//    sphere.userData['starData'] = data;
+//
+//    stars.push(sphere);
+//    sceneStars.add(sphere);
+//  }
+//}
 
 function randomStarColor() {
   return 'rgb('+randomRGB()+','+randomRGB()+','+randomRGB()+')';
