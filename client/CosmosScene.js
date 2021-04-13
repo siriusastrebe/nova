@@ -1,7 +1,8 @@
-import { TextureLoader, BufferGeometry, BufferAttribute, PlaneGeometry, Scene, PerspectiveCamera, Vector3, Matrix4, WebGLRenderer, PCFSoftShadowMap, SphereBufferGeometry, Mesh, MeshLambertMaterial, SpotLight, LineBasicMaterial, AmbientLight, Line, MeshBasicMaterial, MeshPhongMaterial, DoubleSide, Euler, Quaternion, AxesHelper, GridHelper, MathUtils, Float32BufferAttribute, PointsMaterial, Points, ShaderMaterial, AdditiveBlending, Color } from 'three';
+import { TextureLoader, BufferGeometry, BufferAttribute, PlaneGeometry, Scene, PerspectiveCamera, Vector3, Matrix4, WebGLRenderer, PCFSoftShadowMap, SphereBufferGeometry, Mesh, MeshLambertMaterial, SpotLight, LineBasicMaterial, AmbientLight, Line, MeshBasicMaterial, MeshPhongMaterial, DoubleSide, Euler, Quaternion, AxesHelper, GridHelper, MathUtils, Float32BufferAttribute, PointsMaterial, Points, ShaderMaterial, AdditiveBlending, Color, DirectionalLight } from 'three';
 import { Lensflare, LensflareElement } from 'three/examples/jsm/objects/Lensflare';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import * as CSM from 'three-csm';
 import starsData from './stars.js';
 console.log(starsData);
 
@@ -17,6 +18,7 @@ let cameraDistance = 800;
 
 let textureLoader = new TextureLoader();
 let objLoader = new OBJLoader();
+let cascadingShadowMap;
 
 let assets = {};
 let controlledAsset;
@@ -31,13 +33,32 @@ function init() {
 
   const fov = 70;
   const near = 0.1;
-  const far = Number.MAX_SAFE_INTEGER;
+  const far = 1000000;
   camera = new PerspectiveCamera(fov, windowWidth() / windowHeight(), near, far);
   camera.position.set(0, 0, -300);
 
   renderer = new WebGLRenderer( { antialias: true } );
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = PCFSoftShadowMap;
+//console.log(CSM);
+
+
+
+  cascadingShadowMap = new CSM.default({
+    maxFar: camera.far,
+    cascades: 4,
+    shadowMapSize: 1024,
+    lightDirection: new Vector3(1, -1, 0).normalize(),
+    camera: camera,
+    parent: scene
+  });
+
+
+//  const light = new DirectionalLight(0xFFFFFF, 1);
+//  light.position.set(100, 100, -100);
+//  scene.add(light);
+
+
   renderer.setSize(windowWidth(), windowHeight());
 
   //createEarth();
@@ -47,8 +68,8 @@ function init() {
   const gridHelper = new GridHelper( 4000, 40, 0x0000ff, 0x808080 );
   sceneStars.add(gridHelper);
 
-  let worldAxis = new AxesHelper(2000);
-  sceneStars.add(worldAxis);
+//  let worldAxis = new AxesHelper(2000);
+//  sceneStars.add(worldAxis);
 
   render();
   requestAnimationFrame(() => animate(0));
@@ -128,6 +149,7 @@ function render() {
     camera.setRotationFromQuaternion(opposite);
   }
 
+  cascadingShadowMap.update(camera.matrix);
   renderer.render(sceneStars, camera);
   renderer.render(scene, camera);
 }
@@ -199,25 +221,29 @@ export async function addAsset(asset) {
     const options = {map: texture}
     if (bump) {
       options.bumpMap = bump;
-      options.bumpScale = 0.04;
-      options.reflectivity = 0.3; 
-      options.shininess = 0.3;
+      options.bumpScale = 200;
+      options.reflectivity = 0.6; 
+      options.shininess = 0.6;
       options.displacementMap = bump;
-      options.displacementScale = 0.06;
+      options.displacementScale = 20;
     }
 
     if (asset.type === 'player') {
       material = new MeshBasicMaterial(options);
     } else if (asset.type === 'environment') {
       material = new MeshPhongMaterial(options);
+      cascadingShadowMap.setupMaterial(material); // must be called to pass all CSM-related uniforms to the shader
     }
   }
 
   // Object & Geometry
   if (asset.obj) {
     if (asset.obj === 'sphere') {
-      let geometry = new SphereBufferGeometry(1000, 128, 128);
+      let geometry = new SphereBufferGeometry(1000, 512, 512);
       object = new Mesh(geometry, material);
+
+      object.castShadow = true;
+      object.receiveShadow = true;
     } else {
       object = await ol(asset.obj);
 
@@ -235,7 +261,7 @@ export async function addAsset(asset) {
   }
 
   if (asset.name === 'Earth') {
-    createSun(object);
+    //createSun(object);
   }
 
   asset.object = object;
@@ -347,50 +373,50 @@ function createSun(target) {
 //}
 
 function createStars() {
-  let light = new AmbientLight(0xffffff, 1);
-  sceneStars.add(light);
-
-  const vertices = [];
-  const sizes = [];
-  const colors = [];
-
-  const uniforms = {
-    pointTexture: { value: new TextureLoader().load( "/public/spark1.png" ) }
-  };
-
-  const shaderMaterial = new ShaderMaterial( {
-    uniforms: uniforms,
-    vertexShader: document.getElementById( 'vertexshader' ).textContent,
-    fragmentShader: document.getElementById( 'fragmentshader' ).textContent,
-
-    blending: AdditiveBlending,
-    depthTest: false,
-    transparent: true,
-    vertexColors: true
-  } );
-
-  for ( let i = 0; i < 10000; i ++ ) {
-    const x = MathUtils.randFloatSpread( 2000 );
-    const y = MathUtils.randFloatSpread( 2000 );
-    const z = MathUtils.randFloatSpread( 2000 );
-    vertices.push( x, y, z );
-    sizes.push(300);
-
-    const color = new Color();
-    color.setHSL( Math.random(), 1.0, 0.5 );
-    colors.push( color.r, color.g, color.b );
-  }
-
-  const geometry = new BufferGeometry();
-  geometry.setAttribute( 'position', new Float32BufferAttribute( vertices, 3 ) );
-  geometry.setAttribute( 'size', new Float32BufferAttribute( sizes, 1 ) );
-  geometry.setAttribute( 'color', new Float32BufferAttribute( colors, 3 ) );
-
-  //const material = new PointsMaterial( { color: 0xffffff } );
-
-  const points = new Points( geometry, shaderMaterial );
-
-  scene.add( points );
+//  console.log('drawing stars'); let light = new AmbientLight(0xffffff, 1);
+//  sceneStars.add(light);
+//
+//  const vertices = [];
+//  const sizes = [];
+//  const colors = [];
+//
+//  const uniforms = {
+//    pointTexture: { value: new TextureLoader().load( "/public/spark1.png" ) }
+//  };
+//
+//  const shaderMaterial = new ShaderMaterial( {
+//    uniforms: uniforms,
+//    vertexShader: document.getElementById( 'vertexshader' ).textContent,
+//    fragmentShader: document.getElementById( 'fragmentshader' ).textContent,
+// 
+//    blending: AdditiveBlending,
+//    depthTest: false,
+//    transparent: false,
+//    vertexColors: true
+//  } );
+//
+//  for ( let i = 0; i < 10000; i ++ ) {
+//    const x = MathUtils.randFloatSpread( 2000 );
+//    const y = MathUtils.randFloatSpread( 2000 );
+//    const z = MathUtils.randFloatSpread( 2000 );
+//    vertices.push( x, y, z );
+//    sizes.push(300);
+//
+//    const color = new Color();
+//    color.setHSL( Math.random(), 1.0, 0.5 );
+//    colors.push( color.r, color.g, color.b );
+//  }
+//
+//  const geometry = new BufferGeometry();
+//  geometry.setAttribute( 'position', new Float32BufferAttribute( vertices, 3 ) );
+//  geometry.setAttribute( 'size', new Float32BufferAttribute( sizes, 1 ) );
+//  geometry.setAttribute( 'color', new Float32BufferAttribute( colors, 3 ) );
+//
+//  //const material = new PointsMaterial( { color: 0xffffff } );
+//
+//  const points = new Points( geometry, shaderMaterial );
+//
+//  scene.add( points );
 }
 
 //  for (let i=0; i<starsData.length; i++) {
