@@ -4,23 +4,33 @@ exports.assets = function () {
     type: 'environment',
     subtype: 'planet',
     obj: 'sphere',
-    texture: '/public/land_ocean_ice_cloud_2048.png',
+    material: {
+      map: '/public/land_ocean_ice_2048.png',
+      specularMap: '/public/ocean_2048.png',
+      specular: 0x222222,
+    },
     x: 0,
     y: 0,
-    z: -220000,
-    scale: 64,
+    z: -52000,
+    scale: 32,
   }, {
     name: 'Moon',
     type: 'environment',
     subtype: 'moon',
     obj: 'sphere',
-    texture: '/public/lroc_color_poles_2k_blur.png',
-    bump: '/public/ldem_16_uint.png',
+    material: {
+      map: '/public/lroc_color_poles_2k_blur.png',
+      bumpMap: '/public/ldem_16_uint.png',
+      displacementMap: '/public/ldem_16_uint.png',
+      bumpScale: 200,
+      shininess: 1,
+      displacementScale: 20
+    },
     x: 0,
     y: 0,
-    z: 28000,
-    scale: 16,
-  }, {
+    z: 88000,
+    scale: 16
+  }/*, {
     name: 'Sun',
     type: 'environment',
     subtype: 'star',
@@ -56,5 +66,5 @@ exports.assets = function () {
       distance: 1,
       color: undefined
     }]
-  }]
+  }*/]
 }

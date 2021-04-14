@@ -104,7 +104,7 @@ class AssetsService {
       name: data.name,
       t: new Date(),
       obj: data.obj,
-      texture: data.texture,
+      material: data.material,
       bump: data.bump,
       x: data.x !== undefined ? data.x : 0,
       y: data.y !== undefined ? data.y : 0,
@@ -196,7 +196,10 @@ app.on('connection', (connection, b) => {
   const ship = randomSpaceship();
 
   app.service('assets').create({
-    texture: ship.texture,
+    material: {
+      map: ship.texture,
+      specular: 0x222222,
+    },
     obj: ship.obj,
     x: Math.random() * 100,
     y: Math.random() * 100,

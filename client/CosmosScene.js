@@ -6,6 +6,7 @@ import * as CSM from 'three-csm';
 import starsData from './stars.js';
 console.log(starsData);
 
+
 // ----------------------------------------------------------------
 // Initialize the scene
 // ----------------------------------------------------------------
@@ -15,9 +16,12 @@ let windowWidth = () => window.innerWidth;
 let windowHeight = () => window.innerHeight;
 let cameraDistance = 800;
 
-
 let textureLoader = new TextureLoader();
 let objLoader = new OBJLoader();
+// Promisfy Loaders
+const tl = promisify(textureLoader.load, textureLoader);
+const ol = promisify(objLoader.load, objLoader);
+
 let cascadingShadowMap;
 
 let assets = {};
@@ -43,12 +47,13 @@ function init() {
 //console.log(CSM);
 
 
-
   cascadingShadowMap = new CSM.default({
     maxFar: camera.far,
+    lightFar: 100000,
     cascades: 4,
     shadowMapSize: 1024,
     lightDirection: new Vector3(1, -1, 0).normalize(),
+    lightIntensity: 2,
     camera: camera,
     parent: scene
   });
@@ -187,10 +192,7 @@ export function renderSpace() {
 }
 
 export async function addAsset(asset) {
-  console.log('Adding asset', asset);
-
-  const tl = promisify(textureLoader.load, textureLoader);
-  const ol = promisify(objLoader.load, objLoader);
+  console.log('Adding asset', asset.name);
 
   assets[asset.id] = asset;
 
@@ -202,9 +204,9 @@ export async function addAsset(asset) {
   let textures = [];
 
   // Load all textures
-  if (asset.texture) {
-    texture = await tl(asset.texture);
-  }
+  //if (asset.texture) {
+  //  texture = await tl(asset.texture);
+  //}
 
   //if (asset.textures) {
   //  const p = promisify(textureLoader.load, textureLoader);
@@ -212,26 +214,28 @@ export async function addAsset(asset) {
   //}
 
   // Load bumpmap
-  if (asset.bump) {
-    bump = await tl(asset.bump);
-  }
+  //if (asset.bump) {
+  //  bump = await tl(asset.bump);
+  //}
 
   // Load Material
-  if (texture) {
-    const options = {map: texture}
-    if (bump) {
-      options.bumpMap = bump;
-      options.bumpScale = 200;
-      options.reflectivity = 0.6; 
-      options.shininess = 0.6;
-      options.displacementMap = bump;
-      options.displacementScale = 20;
+  if (asset.material) {
+    const m = asset.material;
+    const o = {}
+
+    for (let key in m) {
+      if (key === 'map' || key === 'bumpMap' || key === 'displacementMap' || key === 'specularMap') {
+        o[key] = await tl(m[key]);
+      } else {
+        o[key] = m[key];
+      }
     }
 
     if (asset.type === 'player') {
-      material = new MeshBasicMaterial(options);
+      material = new MeshPhongMaterial(o);
+      cascadingShadowMap.setupMaterial(material); // must be called to pass all CSM-related uniforms to the shader
     } else if (asset.type === 'environment') {
-      material = new MeshPhongMaterial(options);
+      material = new MeshPhongMaterial(o);
       cascadingShadowMap.setupMaterial(material); // must be called to pass all CSM-related uniforms to the shader
     }
   }
@@ -241,9 +245,6 @@ export async function addAsset(asset) {
     if (asset.obj === 'sphere') {
       let geometry = new SphereBufferGeometry(1000, 512, 512);
       object = new Mesh(geometry, material);
-
-      object.castShadow = true;
-      object.receiveShadow = true;
     } else {
       object = await ol(asset.obj);
 
@@ -283,7 +284,7 @@ export function updateAsset(asset) {
       }
     }
   } else {
-    console.error('Unable to update asset, no asset found with with the id ' + asset.id);
+    console.log('Unable to update asset, no asset found with with the id ' + asset.id);
   }
 }
 
