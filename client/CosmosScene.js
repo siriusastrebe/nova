@@ -52,8 +52,8 @@ function init() {
     lightFar: 100000,
     cascades: 4,
     shadowMapSize: 1024,
-    lightDirection: new Vector3(1, -1, 0).normalize(),
-    lightIntensity: 1.5,
+    lightDirection: new Vector3(10, -1, 0).normalize(),
+    lightIntensity: 2.0,
     camera: camera,
     parent: scene
   });
@@ -324,7 +324,7 @@ function createSun() {
   light.castShadow = false;
   light.shadow.camera.near = 0.5;
   light.shadow.camera.far = 200000;
-  light.position.set(-100000, 100000, 0);
+  light.position.set(-100000, 10000, 0);
 
   let lensflare = new Lensflare();
 
@@ -333,7 +333,7 @@ function createSun() {
   let textureFlare4 = textureLoader.load( "/public/lensflare4.png" );
 
   lensflare.addElement( new LensflareElement( textureFlare0, 1000, 0 ) );
-  lensflare.addElement( new LensflareElement( textureFlare4, 10, 0.1 ) );
+  lensflare.addElement( new LensflareElement( textureFlare4, 10, 0.04 ) );
   lensflare.addElement( new LensflareElement( textureFlare3, 60, 0.6 ) );
   lensflare.addElement( new LensflareElement( textureFlare3, 70, 0.7 ) );
   lensflare.addElement( new LensflareElement( textureFlare3, 170, 0.9 ) );

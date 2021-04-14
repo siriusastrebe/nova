@@ -25,6 +25,7 @@ exports.assets = function () {
     },
     x: 0,
     y: 0,
+    dj: 0.003,
     z: -52000,
     scale: 32.4,
   }, {
@@ -45,7 +46,6 @@ exports.assets = function () {
     i: 0,
     j: -0.7071067811865475,
     k: 0,
-    dj: 0,
     x: 0,
     y: 0,
     z: 88000,
