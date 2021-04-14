@@ -1,4 +1,4 @@
-import { TextureLoader, BufferGeometry, BufferAttribute, PlaneGeometry, Scene, PerspectiveCamera, Vector3, Matrix4, WebGLRenderer, PCFSoftShadowMap, SphereBufferGeometry, Mesh, MeshLambertMaterial, SpotLight, LineBasicMaterial, AmbientLight, Line, MeshBasicMaterial, MeshPhongMaterial, DoubleSide, Euler, Quaternion, AxesHelper, GridHelper, MathUtils, Float32BufferAttribute, PointsMaterial, Points, ShaderMaterial, AdditiveBlending, Color, DirectionalLight } from 'three';
+import { TextureLoader, BufferGeometry, BufferAttribute, PlaneGeometry, Scene, PerspectiveCamera, Vector3, Matrix4, WebGLRenderer, PCFSoftShadowMap, SphereBufferGeometry, Mesh, MeshLambertMaterial, SpotLight, LineBasicMaterial, AmbientLight, Line, MeshBasicMaterial, MeshPhongMaterial, DoubleSide, Euler, Quaternion, AxesHelper, GridHelper, MathUtils, Float32BufferAttribute, PointsMaterial, Points, ShaderMaterial, AdditiveBlending, Color, DirectionalLight, PointLight } from 'three';
 import { Lensflare, LensflareElement } from 'three/examples/jsm/objects/Lensflare';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -53,11 +53,12 @@ function init() {
     cascades: 4,
     shadowMapSize: 1024,
     lightDirection: new Vector3(1, -1, 0).normalize(),
-    lightIntensity: 2,
+    lightIntensity: 1.5,
     camera: camera,
     parent: scene
   });
 
+  createSun();
 
 //  const light = new DirectionalLight(0xFFFFFF, 1);
 //  light.position.set(100, 100, -100);
@@ -71,17 +72,17 @@ function init() {
   createStars();
 
   const gridHelper = new GridHelper( 4000, 40, 0x0000ff, 0x808080 );
-  sceneStars.add(gridHelper);
+  scene.add(gridHelper);
 
-//  let worldAxis = new AxesHelper(2000);
-//  sceneStars.add(worldAxis);
+  let worldAxis = new AxesHelper(2000);
+  scene.add(worldAxis);
 
   render();
   requestAnimationFrame(() => animate(0));
 
   //renderer.domElement.addEventListener('click', onClick, false)
-  controls = new OrbitControls( camera, renderer.domElement );
-  controls.update();
+  //controls = new OrbitControls( camera, renderer.domElement );
+  //controls.update();
 }
 
 window.addEventListener( 'resize', onWindowResize, false );
@@ -170,17 +171,8 @@ function animate(count) {
     lastFps = new Date();
   }
 
-  if (delta < 200) {
-    render();
-    requestAnimationFrame(() => animate(count+1));
-  } else {
-    // This is to prevent page freezing
-    console.log('Page freeze detected.');
-    setTimeout(() => {
-      render();
-      requestAnimationFrame(() => animate(count+1));
-    }, 160);
-  }
+  render();
+  requestAnimationFrame(() => animate(count+1));
 }
 
 
@@ -233,7 +225,7 @@ export async function addAsset(asset) {
 
     if (asset.type === 'player') {
       material = new MeshPhongMaterial(o);
-      cascadingShadowMap.setupMaterial(material); // must be called to pass all CSM-related uniforms to the shader
+      //cascadingShadowMap.setupMaterial(material); // must be called to pass all CSM-related uniforms to the shader
     } else if (asset.type === 'environment') {
       material = new MeshPhongMaterial(o);
       cascadingShadowMap.setupMaterial(material); // must be called to pass all CSM-related uniforms to the shader
@@ -257,12 +249,12 @@ export async function addAsset(asset) {
     }
   }
 
+  object.receiveShadow = false;
+  object.castShadow = false;
+
+
   if (asset.scale !== undefined) {
     object.scale.x = object.scale.y = object.scale.z = asset.scale;
-  }
-
-  if (asset.name === 'Earth') {
-    //createSun(object);
   }
 
   asset.object = object;
@@ -327,15 +319,12 @@ export function setControlledAsset(asset) {
 //  });
 //}
 //
-function createSun(target) {
-  //let light = new SpotLight( 0xffffff, 3, 0, Math.PI / 256);
-  //light.target = target;
-  //light.castShadow = true;
-  //light.shadow.camera.near = 0.5;
-  //light.shadow.camera.far = 200000;
-  //light.position.set(100000, 0, 0);
-  let light = new AmbientLight(0xffffff, 1);
-  scene.add(light);
+function createSun() {
+  let light = new PointLight( 0xffffff, 0, 0 );
+  light.castShadow = false;
+  light.shadow.camera.near = 0.5;
+  light.shadow.camera.far = 200000;
+  light.position.set(-100000, 100000, 0);
 
   let lensflare = new Lensflare();
 
@@ -343,13 +332,15 @@ function createSun(target) {
   let textureFlare3 = textureLoader.load( "/public/lensflare3.png" );
   let textureFlare4 = textureLoader.load( "/public/lensflare4.png" );
 
-  lensflare.addElement( new LensflareElement( textureFlare0, 700, 0 ) );
+  lensflare.addElement( new LensflareElement( textureFlare0, 1000, 0 ) );
+  lensflare.addElement( new LensflareElement( textureFlare4, 10, 0.1 ) );
   lensflare.addElement( new LensflareElement( textureFlare3, 60, 0.6 ) );
   lensflare.addElement( new LensflareElement( textureFlare3, 70, 0.7 ) );
-  lensflare.addElement( new LensflareElement( textureFlare3, 120, 0.9 ) );
+  lensflare.addElement( new LensflareElement( textureFlare3, 170, 0.9 ) );
   lensflare.addElement( new LensflareElement( textureFlare3, 70, 1 ) );
 
   light.add(lensflare);
+  scene.add(light);
 }
 //function createMoon() {
 //  textureLoader.load('/public/usgsmoon.jpg', (texture) => {
