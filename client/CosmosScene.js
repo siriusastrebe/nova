@@ -162,6 +162,7 @@ function render() {
   renderer.render(sceneStars, camera);
   renderer.render(scene, camera);
 }
+
 let lastFrame = new Date();
 let lastFps = new Date();
 function animate(count) {
@@ -169,7 +170,7 @@ function animate(count) {
   lastFrame = new Date();
 
   if (new Date() - lastFps >= 1000) {
-    document.getElementById('fps').innerHTML = Math.round(count);
+    document.getElementById('fps').innerHTML = Math.floor(count);
     count = 0;
     lastFps = new Date();
   }
@@ -380,7 +381,7 @@ function createStars() {
   for (let i=0; i<starsData.length; i++) {
     const data = starsData[i];
 
-    let size = 60 + data['Mag'] * 40;
+    let size = 40 + data['Mag'] * 30;
     let color = approximateStarColor(Number(data['ColorIndex']));
 
     const geometry = new BufferGeometry();
