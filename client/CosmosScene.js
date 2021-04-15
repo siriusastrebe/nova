@@ -1,6 +1,7 @@
-import { TextureLoader, BufferGeometry, BufferAttribute, PlaneGeometry, Scene, PerspectiveCamera, Vector3, Matrix4, WebGLRenderer, PCFSoftShadowMap, SphereBufferGeometry, Mesh, MeshLambertMaterial, SpotLight, LineBasicMaterial, AmbientLight, Line, MeshBasicMaterial, MeshPhongMaterial, DoubleSide, Euler, Quaternion, AxesHelper, GridHelper, MathUtils, Float32BufferAttribute, PointsMaterial, Points, ShaderMaterial, AdditiveBlending, Color, DirectionalLight, PointLight } from 'three';
+import { TextureLoader, BufferGeometry, BufferAttribute, PlaneGeometry, Scene, PerspectiveCamera, Vector3, Matrix4, WebGLRenderer, PCFSoftShadowMap, SphereBufferGeometry, Mesh, MeshLambertMaterial, SpotLight, LineBasicMaterial, AmbientLight, Line, MeshBasicMaterial, MeshPhongMaterial, DoubleSide, Euler, Quaternion, AxesHelper, GridHelper, MathUtils, Float32BufferAttribute, PointsMaterial, Points, ShaderMaterial, AdditiveBlending, Color, DirectionalLight, PointLight, SVGRenderer, SVGObject, TetrahedronGeometry } from 'three';
 import { Lensflare, LensflareElement } from 'three/examples/jsm/objects/Lensflare';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import * as CSM from 'three-csm';
 import starsData from './stars.js';
@@ -18,9 +19,12 @@ let cameraDistance = 800;
 
 let textureLoader = new TextureLoader();
 let objLoader = new OBJLoader();
+console.log(SVGLoader);
+let svgLoader = new SVGLoader();
 // Promisfy Loaders
 const tl = promisify(textureLoader.load, textureLoader);
 const ol = promisify(objLoader.load, objLoader);
+const sl = promisify(svgLoader.load, svgLoader);
 
 let cascadingShadowMap;
 
@@ -77,7 +81,6 @@ function init() {
   let worldAxis = new AxesHelper(2000);
   scene.add(worldAxis);
 
-  render();
   requestAnimationFrame(() => animate(0));
 
   //renderer.domElement.addEventListener('click', onClick, false)
@@ -96,10 +99,6 @@ function onWindowResize(){
 // Game Loop
 // ----------------------------------------------------------------
 function render() {
-  // Trick to allow multiple scenes on a single renderer
-  renderer.autoClear = false;
-  renderer.clear();
-
   // Update each asset's position and rotation by dt, the fraction of a second that has elapsed since last render()
   Object.keys(assets).forEach((id) => {
     const asset = assets[id];
@@ -154,6 +153,10 @@ function render() {
     opposite.multiply(upwardsAdjustment);
     camera.setRotationFromQuaternion(opposite);
   }
+
+  // Trick to allow multiple scenes on a single renderer
+  renderer.autoClear = false;
+  renderer.clear();
 
   cascadingShadowMap.update(camera.matrix);
   renderer.render(sceneStars, camera);
@@ -365,7 +368,67 @@ function createSun() {
 //}
 
 function createStars() {
-//  console.log('drawing stars'); let light = new AmbientLight(0xffffff, 1);
+  console.log('drawing stars');
+
+  // Triangle
+  const vertices = new Float32Array([
+    -1.0, -1.0,  0,
+    1.0, 1.0,  0,
+    -1.0, 1.0,  0
+  ]);
+
+  for (let i=0; i<starsData.length; i++) {
+    const data = starsData[i];
+
+    let size = 60 + data['Mag'] * 40;
+    let color = approximateStarColor(Number(data['ColorIndex']));
+
+    const geometry = new BufferGeometry();
+    geometry.setAttribute( 'position', new BufferAttribute( vertices, 3 ) );
+
+    //const geometry = new PlaneGeometry( size, size );
+    //const geometry = new TetrahedronGeometry(size);
+
+    const material = new MeshBasicMaterial( { color: color } );
+    const mesh = new Mesh( geometry, material );
+
+    position(data['Dec'], data['RA'], mesh);
+    mesh.lookAt(new Vector3(0, 0, 0));
+    mesh.userData['starData'] = data;
+    mesh.scale.x = mesh.scale.y = mesh.scale.z = size;
+  
+    sceneStars.add(mesh);
+  }
+}
+
+// const geometry = new THREE.BufferGeometry();
+// create a simple square shape. We duplicate the top left and bottom right
+// vertices because each vertex needs to appear once per triangle.
+// const vertices = new Float32Array( [
+// 	-1.0, -1.0,  1.0,
+// 	 1.0, -1.0,  1.0,
+// 	 1.0,  1.0,  1.0,
+
+// 	 1.0,  1.0,  1.0,
+// 	-1.0,  1.0,  1.0,
+// 	-1.0, -1.0,  1.0
+// ] );
+
+// itemSize = 3 because there are 3 values (components) per vertex
+// geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
+// const material = new THREE.MeshBasicMaterial( { color: 0xff0000 } );
+// const mesh = new THREE.Mesh( geometry, material );
+
+
+
+
+//    const shapes = 
+//    const geometry = new THREE.ShapeGeometry( shape );
+//    position(data['Dec'], data['RA'], sphere);
+//    sphere.userData['starData'] = data;
+//
+//    stars.push(sphere);
+
 //  sceneStars.add(light);
 //
 //  const vertices = [];
@@ -409,7 +472,6 @@ function createStars() {
 //  const points = new Points( geometry, shaderMaterial );
 //
 //  scene.add( points );
-}
 
 //  for (let i=0; i<starsData.length; i++) {
 //    let data = starsData[i];
