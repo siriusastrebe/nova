@@ -18,6 +18,7 @@ export default class Cosmos extends Component {
         <div id="darkness">
           <div id="cosmosscene"></div>
           <div id="vitals">
+            Load: <span id="workload"></span><br />
             FPS: <span id="fps"></span><br />
             Ping: <span id="ping"></span>
           </div>

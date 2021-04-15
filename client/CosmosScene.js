@@ -172,7 +172,10 @@ function animate(count) {
   if (new Date() - lastFps >= 1000) {
     document.getElementById('fps').innerHTML = Math.floor(count);
     count = 0;
-    lastFps = new Date();
+    lastFps = new Date();                                                                                                 
+    const workload = renderer.info.render;                                                                                
+    const str = `${workload.calls} calls, ${workload.triangles} triangles, ${workload.points} points, ${workload.lines} lines`;  
+    document.getElementById('workload').innerHTML = str;                                                                  
   }
 
   render();
@@ -239,7 +242,7 @@ export async function addAsset(asset) {
   // Object & Geometry
   if (asset.obj) {
     if (asset.obj === 'sphere') {
-      let geometry = new SphereBufferGeometry(1000, 512, 512);
+      let geometry = new SphereBufferGeometry(1000, 196, 196);
       object = new Mesh(geometry, material);
     } else {
       object = await ol(asset.obj);
