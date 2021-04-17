@@ -1,4 +1,4 @@
-import { TextureLoader, BufferGeometry, BufferAttribute, PlaneGeometry, Scene, PerspectiveCamera, Vector3, Matrix4, WebGLRenderer, PCFSoftShadowMap, SphereBufferGeometry, Mesh, MeshLambertMaterial, SpotLight, LineBasicMaterial, AmbientLight, Line, MeshBasicMaterial, MeshPhongMaterial, DoubleSide, Euler, Quaternion, AxesHelper, GridHelper, MathUtils, Float32BufferAttribute, PointsMaterial, Points, ShaderMaterial, AdditiveBlending, Color, DirectionalLight, PointLight, SVGRenderer, SVGObject, TetrahedronGeometry } from 'three';
+import { TextureLoader, BufferGeometry, BufferAttribute, PlaneGeometry, Scene, PerspectiveCamera, Vector3, Matrix4, WebGLRenderer, PCFSoftShadowMap, SphereBufferGeometry, Mesh, MeshLambertMaterial, SpotLight, LineBasicMaterial, AmbientLight, Line, MeshBasicMaterial, MeshPhongMaterial, DoubleSide, Euler, Quaternion, AxesHelper, GridHelper, MathUtils, Float32BufferAttribute, PointsMaterial, Points, ShaderMaterial, AdditiveBlending, NormalBlending, Color, DirectionalLight, PointLight, SVGRenderer, SVGObject, TetrahedronGeometry, DynamicDrawUsage  } from 'three';
 import { Lensflare, LensflareElement } from 'three/examples/jsm/objects/Lensflare';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js';
@@ -374,36 +374,110 @@ function createSun() {
 function createStars() {
   console.log('drawing stars');
 
-  // Triangle
-  const vertices = new Float32Array([
-    -1.0, -1.0,  0,
-    1.0, 1.0,  0,
-    -1.0, 1.0,  0
-  ]);
+  // https://threejs.org/examples/#webgl_buffergeometry_drawrange
 
+  // I don't think there's any way to affect the star size without writing our own custom shader
+  // https://discourse.threejs.org/t/how-to-display-points-of-different-sizes-using-three-points/4751/5
+  // So instead, we're going to bucket stars into their appropriate sizes and assign them a PointsMaterial
+  // with the size hardcoded. I don't think we'll ever want background stars to be bigger than 4 pixels,
+  // where you start to see the square shape of the default shader.
+
+  const materials = [new PointsMaterial({
+    size: 1,
+    sizeAttenuation: false,
+    vertexColors: true
+  }), new PointsMaterial({
+    size: 2,
+    sizeAttenuation: false,
+    vertexColors: true
+  }), new PointsMaterial({
+    size: 3,
+    sizeAttenuation: false,
+    vertexColors: true
+  }), new PointsMaterial({
+    size: 4,
+    sizeAttenuation: false,
+    vertexColors: true
+  })];
+
+  const sizedBuckets = [[], [], [], []];
   for (let i=0; i<starsData.length; i++) {
     const data = starsData[i];
 
-    let size = 40 + data['Mag'] * 30;
-    let color = approximateStarColor(Number(data['ColorIndex']));
+    let mag = data['Mag'];
+    let rgb = approximateStarColor(Number(data['ColorIndex']));
+    let colors = rgb.split('(')[1].split(')')[0].split(',');
+    let pos = equitorialToCartesian(data['Dec'], data['RA']);
 
-    const geometry = new BufferGeometry();
-    geometry.setAttribute( 'position', new BufferAttribute( vertices, 3 ) );
+    const d = {colors: colors, pos: pos}
+    if (mag < -1) {
+      // only sirius falls in this bucket
+      sizedBuckets[3].push(d);
+    } else if (mag < 0) {
+      sizedBuckets[2].push(d);
+    } else if (mag < 3) {
+      sizedBuckets[1].push(d);
+    } else {
+      sizedBuckets[0].push(d);
+    }
+  }
 
-    //const geometry = new PlaneGeometry( size, size );
-    //const geometry = new TetrahedronGeometry(size);
+  for (let bucket=0; bucket<4; bucket++) {
+    const stars = sizedBuckets[bucket];
+    const particles = new BufferGeometry();
+    const particlePositions = new Float32Array( starsData.length * 3 );
+    const particleColors = new Uint8Array( starsData.length * 3 );
 
-    const material = new MeshBasicMaterial( { color: color } );
-    const mesh = new Mesh( geometry, material );
+    for (let i=0; i<stars.length; i++) {
+      const pos = stars[i].pos;
+      const colors = stars[i].colors;
 
-    position(data['Dec'], data['RA'], mesh);
-    mesh.lookAt(new Vector3(0, 0, 0));
-    mesh.userData['starData'] = data;
-    mesh.scale.x = mesh.scale.y = mesh.scale.z = size;
-  
-    sceneStars.add(mesh);
+      particlePositions[ i * 3 ] = pos.x;
+      particlePositions[ i * 3 + 1 ] = pos.y;
+      particlePositions[ i * 3 + 2 ] = pos.z;
+
+      particleColors[ i * 3 ] = Number(colors[0]);
+      particleColors[ i * 3 + 1 ] = Number(colors[1]);
+      particleColors[ i * 3 + 2 ] = Number(colors[2]);
+    }
+
+    particles.setAttribute( 'position', new BufferAttribute( particlePositions, 3 ).setUsage( DynamicDrawUsage ) );
+    particles.setAttribute( 'color', new BufferAttribute( particleColors, 3, true ) );
+
+    // create the particle system
+    const pointCloud = new Points( particles, materials[bucket] );
+    scene.add(pointCloud);
   }
 }
+
+//  Dorito shaped stars
+//  const vertices = new Float32Array([
+//    -1.0, -1.0,  0,
+//    1.0, 1.0,  0,
+//    -1.0, 1.0,  0
+//  ]);
+//
+//  for (let i=0; i<starsData.length; i++) {
+//    const data = starsData[i];
+//
+//    let size = 40 + data['Mag'] * 30;
+//    let color = approximateStarColor(Number(data['ColorIndex']));
+//
+//    const geometry = new BufferGeometry();
+//    geometry.setAttribute( 'position', new BufferAttribute( vertices, 3 ) );
+//
+//    //const geometry = new PlaneGeometry( size, size );
+//    //const geometry = new TetrahedronGeometry(size);
+//
+//    const material = new MeshBasicMaterial( { color: color } );
+//    const mesh = new Mesh( geometry, material );
+//
+//    position(data['Dec'], data['RA'], mesh);
+//    mesh.lookAt(new Vector3(0, 0, 0));
+//    mesh.userData['starData'] = data;
+//    mesh.scale.x = mesh.scale.y = mesh.scale.z = size;
+//  
+//    sceneStars.add(mesh);
 
 // const geometry = new THREE.BufferGeometry();
 // create a simple square shape. We duplicate the top left and bottom right

@@ -5,7 +5,6 @@ import './cosmos.css';
 export default class Cosmos extends Component {
   constructor(props) {
     super(props);
-    this.state = {siriusOpacity: 0};
   }
 
   componentDidMount() {
