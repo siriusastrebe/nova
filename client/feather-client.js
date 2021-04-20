@@ -5,7 +5,7 @@ import socketio from '@feathersjs/socketio-client'
 import io from 'socket.io-client'
 
 // ---- Feathers ----
-export default function initializeFeathers(addAsset, updateAsset, setControlledAsset) {
+export default function initializeFeathers(addAsset, updateAsset, setControlledAsset, timeSync) {
 
   const socket = io(document.domain + ':80');
   const feathers = createFeathersClient();
@@ -76,7 +76,10 @@ export default function initializeFeathers(addAsset, updateAsset, setControlledA
     }
   });
 
-  feathers.service('assets').on('networktick', (assets) => {
+  feathers.service('assets').on('networktick', (data) => {
+    const assets = data.assets;
+    const t = data.t;
+    timeSync.serverTick(t);
     assets.forEach((asset) =>  {
       updateAsset(asset);
     });

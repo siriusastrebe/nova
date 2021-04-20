@@ -4,14 +4,14 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import * as CSM from 'three-csm';
-import starsData from './stars.js';
+import starsData from './stars-2500.js';
+import TimeSync from './timeSync.js'
 console.log(starsData);
-
 
 // ----------------------------------------------------------------
 // Initialize the scene
 // ----------------------------------------------------------------
-let camera, scene, sceneStars, renderer, controls;
+let camera, starCamera, scene, sceneStars, renderer, controls;
 let stars = [];
 let windowWidth = () => window.innerWidth;
 let windowHeight = () => window.innerHeight;
@@ -31,6 +31,7 @@ let cascadingShadowMap;
 let assets = {};
 let controlledAsset;
 
+let timeSync = new TimeSync();
 
 init();
 
@@ -45,11 +46,12 @@ function init() {
   camera = new PerspectiveCamera(fov, windowWidth() / windowHeight(), near, far);
   camera.position.set(0, 0, -300);
 
+  starCamera = new PerspectiveCamera(fov, windowWidth() / windowHeight(), near, far);
+  starCamera.position.set(0, 0, 0);
+
   renderer = new WebGLRenderer( { antialias: true } );
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = PCFSoftShadowMap;
-//console.log(CSM);
-
 
   cascadingShadowMap = new CSM.default({
     maxFar: camera.far,
@@ -63,17 +65,9 @@ function init() {
   });
 
   createSun();
-
-//  const light = new DirectionalLight(0xFFFFFF, 1);
-//  light.position.set(100, 100, -100);
-//  scene.add(light);
-
+  createStars();
 
   renderer.setSize(windowWidth(), windowHeight());
-
-  //createEarth();
-  //createMoon();
-  createStars();
 
   const gridHelper = new GridHelper( 4000, 40, 0x0000ff, 0x808080 );
   scene.add(gridHelper);
@@ -82,16 +76,16 @@ function init() {
   scene.add(worldAxis);
 
   requestAnimationFrame(() => animate(0));
-
-  //renderer.domElement.addEventListener('click', onClick, false)
-  //controls = new OrbitControls( camera, renderer.domElement );
-  //controls.update();
 }
 
 window.addEventListener( 'resize', onWindowResize, false );
 function onWindowResize(){
   camera.aspect = windowWidth() / windowHeight();
   camera.updateProjectionMatrix();
+
+  starCamera.aspect = windowWidth() / windowHeight();
+  starCamera.updateProjectionMatrix();
+
   renderer.setSize(windowWidth(), windowHeight());
 }
 
@@ -103,8 +97,9 @@ function render() {
   Object.keys(assets).forEach((id) => {
     const asset = assets[id];
 
-    // asset.t stores the local timestamp of when the asset was last updated with server gamestate
-    let dt = (new Date() - asset.t) / 1000;
+    // asset.t stores the server timestamp
+    let dt = (new Date().getTime() - asset.t + timeSync.averagedDelta) / 1000;
+console.log(new Date().getTime() - asset.t, timeSync.averagedDelta);
 
     let x = asset.x + asset.dx * dt + asset.ddx * dt * dt / 2;
     let y = asset.y + asset.dy * dt + asset.ddy * dt * dt / 2;
@@ -152,6 +147,8 @@ function render() {
 
     opposite.multiply(upwardsAdjustment);
     camera.setRotationFromQuaternion(opposite);
+    // Don't forget to rotate star camera (rooted at origin)
+    starCamera.setRotationFromQuaternion(opposite);
   }
 
   // Trick to allow multiple scenes on a single renderer
@@ -159,7 +156,7 @@ function render() {
   renderer.clear();
 
   cascadingShadowMap.update(camera.matrix);
-  renderer.render(sceneStars, camera);
+  renderer.render(sceneStars, starCamera);
   renderer.render(scene, camera);
 }
 
@@ -172,8 +169,8 @@ function animate(count) {
   if (new Date() - lastFps >= 1000) {
     document.getElementById('fps').innerHTML = Math.floor(count);
     count = 0;
-    lastFps = new Date();                                                                                                 
-    const workload = renderer.info.render;                                                                                
+    lastFps = new Date();
+    const workload = renderer.info.render;
     const str = `${workload.calls} calls, ${workload.triangles} triangles, ${workload.points} points, ${workload.lines} lines`;  
     document.getElementById('workload').innerHTML = str;                                                                  
   }
@@ -201,21 +198,6 @@ export async function addAsset(asset) {
   let material;
   let texture;
   let textures = [];
-
-  // Load all textures
-  //if (asset.texture) {
-  //  texture = await tl(asset.texture);
-  //}
-
-  //if (asset.textures) {
-  //  const p = promisify(textureLoader.load, textureLoader);
-  //  textures = await Promise.all(asset.textures.map(p));
-  //}
-
-  // Load bumpmap
-  //if (asset.bump) {
-  //  bump = await tl(asset.bump);
-  //}
 
   // Load Material
   if (asset.material) {
@@ -269,11 +251,11 @@ export async function addAsset(asset) {
 }
 
 
+export {timeSync};
+
 export function updateAsset(asset) {
   const existing = assets[asset.id];
   if (existing) {
-    existing.t = new Date();
-
     for (let key in asset) {
       if (existing[key] !== asset[key]) {
         if (Math.abs(existing[key] - asset[key]) > 0.1) {
@@ -301,37 +283,10 @@ export function setControlledAsset(asset) {
 // ----------------------------------------------------------------
 // Environmental 
 // ----------------------------------------------------------------
-//function createEarth() {
-//  textureLoader.load('/public/land_ocean_ice_cloud_1024.jpg', (texture) => {
-//    const geometry = new SphereBufferGeometry( 50, 64, 64 );
-//    const material = new MeshLambertMaterial({map: texture});
-//    const earth = new Mesh( geometry, material );
-//
-//    window.earth = earth;
-//
-//    earth.position.z = 0;
-//    earth.position.y = 0;
-//    earth.position.x = -2000;
-//    earth.rotation.y = 2.5;
-//
-//    earth.scale.x = earth.scale.y = earth.scale.z = 20;
-//    earth.receiveShadow = true;
-//
-//    scene.add(earth);
-//    createSun(earth);
-//  }, function (a, b, c) {
-//    //console.log('progress', a.loaded / a.total, new Date() - t);
-//  }, function ( error ) {
-//    console.log( error );
-//  });
-//}
-//
 function createSun() {
   let light = new PointLight( 0xffffff, 0, 0 );
   light.castShadow = false;
-  light.shadow.camera.near = 0.5;
-  light.shadow.camera.far = 200000;
-  light.position.set(-100000, 10000, 0);
+  light.position.set(-800000, 80000, 0);
 
   let lensflare = new Lensflare();
 
@@ -349,27 +304,6 @@ function createSun() {
   light.add(lensflare);
   scene.add(light);
 }
-//function createMoon() {
-//  textureLoader.load('/public/usgsmoon.jpg', (texture) => {
-//    const geometry = new SphereBufferGeometry( 50, 32, 32 );
-//    const material = new MeshLambertMaterial({map: texture});
-//    const moon = new Mesh( geometry, material );
-//
-//    window.moon = moon;
-//
-//    moon.position.z = 500;
-//    moon.position.y = 120;
-//    moon.position.x = 400;
-//    moon.rotation.y = Math.PI / 3 * 5;
-//
-//    moon.scale.x = moon.scale.y = moon.scale.z = 3;
-//    moon.receiveShadow = true;
-//
-//    scene.add(moon)
-//  }, undefined, function ( error ) {
-//    console.error( error );
-//  });
-//}
 
 function createStars() {
   console.log('drawing stars');
@@ -410,17 +344,17 @@ function createStars() {
     let pos = equitorialToCartesian(data['Dec'], data['RA']);
 
     const d = {colors: colors, pos: pos}
-    if (mag < -1) {
-      // only sirius falls in this bucket
+    if (mag < 0) {
       sizedBuckets[3].push(d);
-    } else if (mag < 0) {
+    } else if (mag < 2) {
       sizedBuckets[2].push(d);
-    } else if (mag < 3) {
+    } else if (mag < 4.5) {
       sizedBuckets[1].push(d);
     } else {
       sizedBuckets[0].push(d);
     }
   }
+
 
   for (let bucket=0; bucket<4; bucket++) {
     const stars = sizedBuckets[bucket];
@@ -446,134 +380,9 @@ function createStars() {
 
     // create the particle system
     const pointCloud = new Points( particles, materials[bucket] );
-    scene.add(pointCloud);
+    sceneStars.add(pointCloud);
   }
 }
-
-//  Dorito shaped stars
-//  const vertices = new Float32Array([
-//    -1.0, -1.0,  0,
-//    1.0, 1.0,  0,
-//    -1.0, 1.0,  0
-//  ]);
-//
-//  for (let i=0; i<starsData.length; i++) {
-//    const data = starsData[i];
-//
-//    let size = 40 + data['Mag'] * 30;
-//    let color = approximateStarColor(Number(data['ColorIndex']));
-//
-//    const geometry = new BufferGeometry();
-//    geometry.setAttribute( 'position', new BufferAttribute( vertices, 3 ) );
-//
-//    //const geometry = new PlaneGeometry( size, size );
-//    //const geometry = new TetrahedronGeometry(size);
-//
-//    const material = new MeshBasicMaterial( { color: color } );
-//    const mesh = new Mesh( geometry, material );
-//
-//    position(data['Dec'], data['RA'], mesh);
-//    mesh.lookAt(new Vector3(0, 0, 0));
-//    mesh.userData['starData'] = data;
-//    mesh.scale.x = mesh.scale.y = mesh.scale.z = size;
-//  
-//    sceneStars.add(mesh);
-
-// const geometry = new THREE.BufferGeometry();
-// create a simple square shape. We duplicate the top left and bottom right
-// vertices because each vertex needs to appear once per triangle.
-// const vertices = new Float32Array( [
-// 	-1.0, -1.0,  1.0,
-// 	 1.0, -1.0,  1.0,
-// 	 1.0,  1.0,  1.0,
-
-// 	 1.0,  1.0,  1.0,
-// 	-1.0,  1.0,  1.0,
-// 	-1.0, -1.0,  1.0
-// ] );
-
-// itemSize = 3 because there are 3 values (components) per vertex
-// geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
-// const material = new THREE.MeshBasicMaterial( { color: 0xff0000 } );
-// const mesh = new THREE.Mesh( geometry, material );
-
-
-
-
-//    const shapes = 
-//    const geometry = new THREE.ShapeGeometry( shape );
-//    position(data['Dec'], data['RA'], sphere);
-//    sphere.userData['starData'] = data;
-//
-//    stars.push(sphere);
-
-//  sceneStars.add(light);
-//
-//  const vertices = [];
-//  const sizes = [];
-//  const colors = [];
-//
-//  const uniforms = {
-//    pointTexture: { value: new TextureLoader().load( "/public/spark1.png" ) }
-//  };
-//
-//  const shaderMaterial = new ShaderMaterial( {
-//    uniforms: uniforms,
-//    vertexShader: document.getElementById( 'vertexshader' ).textContent,
-//    fragmentShader: document.getElementById( 'fragmentshader' ).textContent,
-// 
-//    blending: AdditiveBlending,
-//    depthTest: false,
-//    transparent: false,
-//    vertexColors: true
-//  } );
-//
-//  for ( let i = 0; i < 10000; i ++ ) {
-//    const x = MathUtils.randFloatSpread( 2000 );
-//    const y = MathUtils.randFloatSpread( 2000 );
-//    const z = MathUtils.randFloatSpread( 2000 );
-//    vertices.push( x, y, z );
-//    sizes.push(300);
-//
-//    const color = new Color();
-//    color.setHSL( Math.random(), 1.0, 0.5 );
-//    colors.push( color.r, color.g, color.b );
-//  }
-//
-//  const geometry = new BufferGeometry();
-//  geometry.setAttribute( 'position', new Float32BufferAttribute( vertices, 3 ) );
-//  geometry.setAttribute( 'size', new Float32BufferAttribute( sizes, 1 ) );
-//  geometry.setAttribute( 'color', new Float32BufferAttribute( colors, 3 ) );
-//
-//  //const material = new PointsMaterial( { color: 0xffffff } );
-//
-//  const points = new Points( geometry, shaderMaterial );
-//
-//  scene.add( points );
-
-//  for (let i=0; i<starsData.length; i++) {
-//    let data = starsData[i];
-//
-//    let size = 60 + data['Mag'] * 30;
-//    let sides = 7;
-//
-//    if (data['Mag'] < -1) {
-//      size = 320;
-//      sides = 9;
-//    }
-//
-//    let geometry = new SphereBufferGeometry(size, sides, sides);
-//    let color = approximateStarColor(Number(data['ColorIndex']));
-//    let material = new MeshPhongMaterial( {color: color} );
-//    let sphere = new Mesh( geometry, material );
-//
-//    position(data['Dec'], data['RA'], sphere);
-//    sphere.userData['starData'] = data;
-//
-//    stars.push(sphere);
-//    sceneStars.add(sphere);
-//  }
-//}
 
 function randomStarColor() {
   return 'rgb('+randomRGB()+','+randomRGB()+','+randomRGB()+')';
@@ -622,7 +431,6 @@ function approximateStarColor(bv) {
   const rgb = spectrum[Math.floor((-bv + 2) / 2.5 * spectrum.length)]
   return rgb;
 }
-
 
 
 // ----------------------------------------------------------------

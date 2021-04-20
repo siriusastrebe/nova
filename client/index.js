@@ -8,9 +8,9 @@ import {
 } from "react-router-dom";
 
 import Cosmos from './cosmos.js';
-import { addAsset, updateAsset, setControlledAsset } from './CosmosScene.js';
+import { addAsset, updateAsset, setControlledAsset, timeSync } from './CosmosScene.js';
 import initializeFeathers from './feather-client.js';
-initializeFeathers(addAsset, updateAsset, setControlledAsset);
+initializeFeathers(addAsset, updateAsset, setControlledAsset, timeSync);
 
 export default function App() {
   return (

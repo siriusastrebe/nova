@@ -73,6 +73,7 @@ class UserInputsService {
     }
 
 
+
     //const asset = await app.service('assets').getBySocket(socketId);
     //if (asset) {
     //  const changes = calculateAssetTick(asset);
@@ -102,7 +103,7 @@ class AssetsService {
     const asset = {
       id: id,
       name: data.name,
-      t: new Date(),
+      t: new Date().getTime(),
       obj: data.obj,
       material: data.material,
       bump: data.bump,
@@ -259,9 +260,11 @@ const gameLoop = setInterval(async () => {
       return changes;
     });
 
+    const timestamp = new Date().getTime();
+
     setTimeout(() => {
-      app.service('assets').emit('networktick', allChanges);
-    },0); // (Math.random() * 50) + 50);
+      app.service('assets').emit('networktick', {t: timestamp, assets: allChanges});
+    }, (Math.random() * 80) + 50);
   }
 }, 100);
 
@@ -350,7 +353,7 @@ function calculateAssetTick(asset) {
   asset.dj = asset.dj + asset.ddj * dt;
   asset.dk = asset.dk + asset.ddk * dt;
 
-  asset.t = new Date();
+  asset.t = new Date().getTime();
 
   return {
     x: asset.x,
@@ -368,7 +371,9 @@ function calculateAssetTick(asset) {
     w: asset.w,
     i: asset.i,
     j: asset.j,
-    k: asset.k
+    k: asset.k,
+
+    t: asset.t
   }
 }
 
