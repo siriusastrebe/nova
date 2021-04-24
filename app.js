@@ -240,7 +240,15 @@ solarSystem.map(async (i) => {
 // ---- Game Loop ----
 let t = new Date();
 
-const gameLoop = setInterval(async () => {
+let gameLoopStart = new Date();
+let gameLoopTicks = 0;
+const gameLoop = async () => {
+  // Javascript's setInterval and setTimeout doesn't guarantee timing
+  gameLoopTicks++;
+  const expected = gameLoopTicks * 100;
+
+  const drift = new Date() - gameLoopStart - expected;
+
   const assets = await app.service('assets').find();
   const userInputs = await app.service('userInputs').find();
 
@@ -262,11 +270,17 @@ const gameLoop = setInterval(async () => {
 
     const timestamp = new Date().getTime();
 
+    // Simulate lag
+    let currenttick = gameLoopTicks;
     setTimeout(() => {
-      app.service('assets').emit('networktick', {t: timestamp, assets: allChanges});
-    }, (Math.random() * 80) + 50);
+      app.service('assets').emit('networktick', {t: timestamp, assets: allChanges, ticks: currenttick});
+    }, (Math.random() * 100) + 80);
   }
-}, 100);
+
+  // Account for the time drift 
+  setTimeout(gameLoop, 100 - drift)
+}
+
 
 function calculateAssetForces(asset, userInput) {
   const angularDrag = 3;
@@ -380,6 +394,8 @@ function calculateAssetTick(asset) {
 
 // ---- Running the app ----
 app.listen(port, () => console.log(`Nova running on http://0.0.0.0:${port}`))
+gameLoopStart = new Date();
+gameLoop().then(() => {});
 
 
 // ---- Helper functions ----

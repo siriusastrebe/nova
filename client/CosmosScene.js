@@ -5,9 +5,36 @@ import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import * as CSM from 'three-csm';
 import starsData from './stars-2500.js';
-import TimeSync from './timeSync.js'
-console.log(starsData);
 
+class Timer {
+  constructor() {
+    this.start = undefined;
+    this.ticks = 0;
+    this.startTick = 0;
+    this.lastTick = undefined;
+  }
+  setTicks(ticks, serverTime) {
+    this.ticks = ticks;
+    this.lastTick = new Date();
+
+    // Adjust start time to match average ping
+    const delta = this.delta();
+    if (Math.abs(delta) > 0.01) {
+console.log('adjustment', Math.trunc(delta * 100));
+      this.start = new Date(this.start.getTime() + Math.trunc(delta * 100));
+    }
+  }
+  startTimer(ticks, serverTime) {
+    this.start = new Date();
+    this.ticks = ticks;
+    this.startTick = ticks;
+    this.lastTick = new Date();
+  }
+  delta() {
+    return (new Date() - this.start - (this.ticks - this.startTick) * 100) / 1000;
+  }
+}
+let timer = new Timer();
 // ----------------------------------------------------------------
 // Initialize the scene
 // ----------------------------------------------------------------
@@ -19,7 +46,6 @@ let cameraDistance = 800;
 
 let textureLoader = new TextureLoader();
 let objLoader = new OBJLoader();
-console.log(SVGLoader);
 let svgLoader = new SVGLoader();
 // Promisfy Loaders
 const tl = promisify(textureLoader.load, textureLoader);
@@ -30,8 +56,6 @@ let cascadingShadowMap;
 
 let assets = {};
 let controlledAsset;
-
-let timeSync = new TimeSync();
 
 init();
 
@@ -98,8 +122,7 @@ function render() {
     const asset = assets[id];
 
     // asset.t stores the server timestamp
-    let dt = (new Date().getTime() - asset.t + timeSync.averagedDelta) / 1000;
-console.log(new Date().getTime() - asset.t, timeSync.averagedDelta);
+    let dt = timer.delta();
 
     let x = asset.x + asset.dx * dt + asset.ddx * dt * dt / 2;
     let y = asset.y + asset.dy * dt + asset.ddy * dt * dt / 2;
@@ -172,7 +195,7 @@ function animate(count) {
     lastFps = new Date();
     const workload = renderer.info.render;
     const str = `${workload.calls} calls, ${workload.triangles} triangles, ${workload.points} points, ${workload.lines} lines`;  
-    document.getElementById('workload').innerHTML = str;                                                                  
+    document.getElementById('workload').innerHTML = str;
   }
 
   render();
@@ -251,16 +274,16 @@ export async function addAsset(asset) {
 }
 
 
-export {timeSync};
+export {timer}
 
 export function updateAsset(asset) {
   const existing = assets[asset.id];
   if (existing) {
     for (let key in asset) {
       if (existing[key] !== asset[key]) {
-        if (Math.abs(existing[key] - asset[key]) > 0.1) {
-          //console.log(key, existing[key] - asset[key]);
-        }
+        //if (Math.abs(existing[key] - asset[key]) > 0.1) {
+        //  console.log(key, existing[key] - asset[key]);
+        //}
         existing[key] = asset[key];
       }
     }

@@ -5,7 +5,7 @@ import socketio from '@feathersjs/socketio-client'
 import io from 'socket.io-client'
 
 // ---- Feathers ----
-export default function initializeFeathers(addAsset, updateAsset, setControlledAsset, timeSync) {
+export default function initializeFeathers(addAsset, updateAsset, setControlledAsset, timer) {
 
   const socket = io(document.domain + ':80');
   const feathers = createFeathersClient();
@@ -78,8 +78,16 @@ export default function initializeFeathers(addAsset, updateAsset, setControlledA
 
   feathers.service('assets').on('networktick', (data) => {
     const assets = data.assets;
+    const ticks = data.ticks;
     const t = data.t;
-    timeSync.serverTick(t);
+
+
+    if (timer.start === undefined) {
+      timer.startTimer(ticks, t);
+    } else {
+      timer.setTicks(ticks, t);
+    }
+
     assets.forEach((asset) =>  {
       updateAsset(asset);
     });
@@ -116,6 +124,14 @@ export default function initializeFeathers(addAsset, updateAsset, setControlledA
     }
   }
 }
+
+document.onmousedown = (e) => {
+  console.log('clack', e);
+};
+
+document.onmouseup = (e) => {
+  console.log('whack', e);
+};
 
 function keyToAction(e) {
   const key = e.key.toLowerCase();
