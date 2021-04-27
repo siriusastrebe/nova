@@ -61,8 +61,7 @@ class UserInputsService {
     }
     this.users[data.id] = userInput;
   }
-  patch(id, params, c) {
-    return new Promise(async (resolve, reject) => { 
+  async patch(id, params, c) {
     // Ignore user provided ID, use socket id instead
     const socketId = c.connection.socketId;
     const userInput = this.users[socketId];
@@ -74,20 +73,11 @@ class UserInputsService {
       }
     }
 
-    setTimeout(async () => {
-      console.log('----------', Object.keys(c.connection));
+    //setTimeout(async () => {
       c.connection.socket.emit('roundtrip', {t: new Date().getTime(), start: id});
-      //await app.service('assets').emit('roundtrip', {t: new Date().getTime(), start: id});
-    }, 100);
+    //}, 100);
 
-    // Send the changes immediately
-    //setTimeout(async() => {
-    //  await app.service('assets').patch(asset.id, changes);
-    //  }, 100);
-    //}
-
-    resolve(userInput);
-    })
+    return userInput;
   }
 }
 
@@ -127,6 +117,8 @@ class AssetsService {
       ddi: data.ddi !== undefined ? data.ddi : 0,
       ddj: data.ddj !== undefined ? data.ddj : 0,
       ddk: data.ddk !== undefined ? data.ddk : 0,
+      vitals: data.vitals,
+      weapons: data.weapons,
       scale: data.scale,
       type: data.type,
       subtype: data.subtype,
@@ -202,6 +194,7 @@ app.on('connection', (connection, b) => {
       map: ship.texture,
       specular: 0x222222,
     },
+    weapons: ship.weapons,
     obj: ship.obj,
     x: Math.random() * 100,
     y: Math.random() * 100,
@@ -222,6 +215,7 @@ app.on('connection', (connection, b) => {
     ddi: 0,
     ddj: 0,
     ddk: 0,
+    vitals: {charge: 100},
     type: 'player',
     subtype: 'ship',
     socketId: connection.socketId
@@ -260,6 +254,7 @@ const gameLoop = async () => {
       const userInput = userInputs[asset.socketId];
       if (userInput) {
         forces = calculateAssetForces(asset, userInput);
+        assetActions(asset, userInput);
       }
       Object.keys(forces).map((key) => { changes[key] = forces[key] });
 
@@ -274,11 +269,63 @@ const gameLoop = async () => {
     let currenttick = gameLoopTicks;
     setTimeout(() => {
       app.service('assets').emit('networktick', {t: timestamp, assets: allChanges, ticks: currenttick});
-    }, (Math.random() * 200) + 200);
+    }, 0); //(Math.random() * 200) + 200);
   }
 
   // Account for the time drift 
   setTimeout(gameLoop, 100 - drift)
+}
+
+function assetActions(asset, input) {
+
+  // Shooting gun
+  if (input.mousedown) {
+    for (let weapon of asset.weapons) {
+      if (weapon === 'charger') {
+        if (asset.vitals.charge >  12) {
+
+          const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
+          const v = new Three.Vector3(0, 0, 10000);
+          v.applyQuaternion(orientation);
+
+          const props = {
+            obj: 'sphere',
+            x: asset.x,
+            y: asset.y,
+            z: asset.z,
+            w: asset.w,
+            i: asset.i,
+            j: asset.j,
+            k: asset.k,
+            dx: v.x + asset.dx,
+            dy: v.y + asset.dy,
+            dz: v.z + asset.dz,
+            type: 'projectile',
+            material: {
+              color: 0xFF0000,
+            }
+          }
+
+          if (asset.vitals.charge >= 100) {
+            asset.vitals.charge -= 40;
+            props.name = 'Charge shot',
+            props.scale = 120;
+          } else {
+            props.name = 'Rapid shot',
+            asset.vitals.charge -= 12;
+            props.scale = 20;
+          }
+
+          app.service('assets').create(props).then((a, b) => {
+            console.log('Shooting', props.name);
+          });
+        }
+      }
+    }
+  }
+
+  if (asset.vitals.charge < 100) asset.vitals.charge += 3;
+  if (asset.vitals.charge > 100) asset.vitals.charge = 100;
 }
 
 
@@ -405,7 +452,8 @@ function randomSpaceship() {
 //    texture: '/public/SpaceFighter01/F01_512.jpg'
 //  }, {
     obj: '/public/SpaceFighter02/SpaceFighter02.obj',
-    texture: '/public/SpaceFighter02/F02_512.jpg'
+    texture: '/public/SpaceFighter02/F02_512.jpg',
+    weapons: ['charger'],
 //  }, {
 //    obj: '/public/SpaceFighter03/SpaceFighter03.obj',
 //    texture: '/public/SpaceFighter03/F03_512.jpg'

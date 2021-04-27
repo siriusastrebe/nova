@@ -93,9 +93,6 @@ export default function initializeFeathers(addAsset, updateAsset, setControlledA
   });
 
   socket.on('roundtrip', (data, a, b) => {
-    console.log('soockem boppers', data, a, b)
-  });
-  feathers.service('assets').on('roundtrip', (data) => {
     timer.roundtrip(data.start, new Date().getTime(), data.t);
   });
 

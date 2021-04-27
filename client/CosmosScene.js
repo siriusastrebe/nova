@@ -259,13 +259,15 @@ export async function addAsset(asset) {
     } else if (asset.type === 'environment') {
       material = new MeshPhongMaterial(o);
       cascadingShadowMap.setupMaterial(material); // must be called to pass all CSM-related uniforms to the shader
+    } else if (asset.type === 'projectile') {
+      material = new MeshBasicMaterial(o);
     }
   }
 
   // Object & Geometry
   if (asset.obj) {
     if (asset.obj === 'sphere') {
-      let geometry = new SphereBufferGeometry(1000, 196, 196);
+      let geometry = new SphereBufferGeometry(asset.scale, 196, 196);
       object = new Mesh(geometry, material);
     } else {
       object = await ol(asset.obj);
@@ -281,11 +283,6 @@ export async function addAsset(asset) {
 
   object.receiveShadow = false;
   object.castShadow = false;
-
-
-  if (asset.scale !== undefined) {
-    object.scale.x = object.scale.y = object.scale.z = asset.scale;
-  }
 
   asset.object = object;
   scene.add(object);
