@@ -81,7 +81,6 @@ export default function initializeFeathers(addAsset, updateAsset, setControlledA
     const ticks = data.ticks;
     const t = data.t;
 
-
     if (timer.start === undefined) {
       timer.startTimer(ticks, t);
     } else {
@@ -91,6 +90,13 @@ export default function initializeFeathers(addAsset, updateAsset, setControlledA
     assets.forEach((asset) =>  {
       updateAsset(asset);
     });
+  });
+
+  socket.on('roundtrip', (data, a, b) => {
+    console.log('soockem boppers', data, a, b)
+  });
+  feathers.service('assets').on('roundtrip', (data) => {
+    timer.roundtrip(data.start, new Date().getTime(), data.t);
   });
 
   document.onkeydown = function (e) {
@@ -104,7 +110,9 @@ export default function initializeFeathers(addAsset, updateAsset, setControlledA
           [action]: true
         }
 
-        feathers.service('userInputs').patch(null, params);
+        feathers.service('userInputs').patch(new Date().getTime(), params).then((a, b) => {
+          console.log('aardvark', a, b);
+        });
       }
     }
   }
@@ -119,19 +127,25 @@ export default function initializeFeathers(addAsset, updateAsset, setControlledA
         const params = {
           [action]: false
         }
-        feathers.service('userInputs').patch(null, params);
+        feathers.service('userInputs').patch(new Date().getTime(), params);
       }
     }
   }
+
+  document.onmousedown = (e) => {
+    const params = {
+      mousedown: true
+    }
+    feathers.service('userInputs').patch(new Date().getTime(), params);
+  };
+
+  document.onmouseup = (e) => {
+    const params = {
+      mousedown: false
+    }
+    feathers.service('userInputs').patch(new Date().getTime(), params);
+  };
 }
-
-document.onmousedown = (e) => {
-  console.log('clack', e);
-};
-
-document.onmouseup = (e) => {
-  console.log('whack', e);
-};
 
 function keyToAction(e) {
   const key = e.key.toLowerCase();

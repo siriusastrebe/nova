@@ -1,4 +1,4 @@
-import { TextureLoader, BufferGeometry, BufferAttribute, PlaneGeometry, Scene, PerspectiveCamera, Vector3, Matrix4, WebGLRenderer, PCFSoftShadowMap, SphereBufferGeometry, Mesh, MeshLambertMaterial, SpotLight, LineBasicMaterial, AmbientLight, Line, MeshBasicMaterial, MeshPhongMaterial, DoubleSide, Euler, Quaternion, AxesHelper, GridHelper, MathUtils, Float32BufferAttribute, PointsMaterial, Points, ShaderMaterial, AdditiveBlending, NormalBlending, Color, DirectionalLight, PointLight, SVGRenderer, SVGObject, TetrahedronGeometry, DynamicDrawUsage  } from 'three';
+import { TextureLoader, BufferGeometry, BufferAttribute, PlaneGeometry, Scene, PerspectiveCamera, Vector3, Matrix4, WebGLRenderer, PCFSoftShadowMap, SphereBufferGeometry, Mesh, MeshLambertMaterial, SpotLight, LineBasicMaterial, AmbientLight, Line, MeshBasicMaterial, MeshPhongMaterial, DoubleSide, Euler, Quaternion, AxesHelper, GridHelper, MathUtils, Float32BufferAttribute, PointsMaterial, Points, ShaderMaterial, AdditiveBlending, NormalBlending, Color, DirectionalLight, PointLight, SVGRenderer, SVGObject, TetrahedronGeometry, DynamicDrawUsage, StaticDrawUsage  } from 'three';
 import { Lensflare, LensflareElement } from 'three/examples/jsm/objects/Lensflare';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js';
@@ -12,6 +12,9 @@ class Timer {
     this.ticks = 0;
     this.startTick = 0;
     this.lastTick = undefined;
+
+    this.lastestPing = undefined;
+    this.roundTrips = [];
   }
   setTicks(ticks, serverTime) {
     this.ticks = ticks;
@@ -20,7 +23,6 @@ class Timer {
     // Adjust start time to match average ping
     const delta = this.delta();
     if (Math.abs(delta) > 0.01) {
-console.log('adjustment', Math.trunc(delta * 100));
       this.start = new Date(this.start.getTime() + Math.trunc(delta * 100));
     }
   }
@@ -32,6 +34,22 @@ console.log('adjustment', Math.trunc(delta * 100));
   }
   delta() {
     return (new Date() - this.start - (this.ticks - this.startTick) * 100) / 1000;
+  }
+  roundtrip(start, end, serverTime) {
+    this.latestPing = end - start;
+
+    const trip = {
+      start: start,
+      end: end,
+      serverTime: serverTime
+    }
+
+    this.roundTrips.unshift(trip);
+    // Shave off for efficiency
+    if (this.roundTrips.length > 150) this.roundTrips.length = 100;
+
+
+    document.getElementById('ping').innerHTML = Math.floor(this.latestPing);
   }
 }
 let timer = new Timer();
@@ -398,7 +416,7 @@ function createStars() {
       particleColors[ i * 3 + 2 ] = Number(colors[2]);
     }
 
-    particles.setAttribute( 'position', new BufferAttribute( particlePositions, 3 ).setUsage( DynamicDrawUsage ) );
+    particles.setAttribute( 'position', new BufferAttribute( particlePositions, 3 ).setUsage( StaticDrawUsage ) );
     particles.setAttribute( 'color', new BufferAttribute( particleColors, 3, true ) );
 
     // create the particle system

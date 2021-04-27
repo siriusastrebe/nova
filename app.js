@@ -28,6 +28,7 @@ app.configure(express.rest());                   // Add REST API support
 app.configure(socketio((io) => {                 // Configure Socket.io real-time APIs
   io.use((socket, next) => {
     socket.feathers.socketId = socket.id;        // Provides socketId as an attribute of connection
+    socket.feathers.socket = socket;             // Lets us access and emit to the socket directly
     next();
   });
 }));
@@ -56,6 +57,7 @@ class UserInputsService {
       clockwise: false,
       counterclockwise: false,
       space: false,
+      mousedown: false,
     }
     this.users[data.id] = userInput;
   }
@@ -72,12 +74,11 @@ class UserInputsService {
       }
     }
 
-
-
-    //const asset = await app.service('assets').getBySocket(socketId);
-    //if (asset) {
-    //  const changes = calculateAssetTick(asset);
-    //}
+    setTimeout(async () => {
+      console.log('----------', Object.keys(c.connection));
+      c.connection.socket.emit('roundtrip', {t: new Date().getTime(), start: id});
+      //await app.service('assets').emit('roundtrip', {t: new Date().getTime(), start: id});
+    }, 100);
 
     // Send the changes immediately
     //setTimeout(async() => {
@@ -95,7 +96,7 @@ class AssetsService {
     this.assets = {};
     this.assetsBySocket = {};
     this.idcounter = 0;
-    this.events = ['networktick'];
+    this.events = ['networktick', 'roundtrip'];
   }
   async create(data, params) {
     const id = this.idcounter;
@@ -224,7 +225,7 @@ app.on('connection', (connection, b) => {
     type: 'player',
     subtype: 'ship',
     socketId: connection.socketId
-  }).then(asset => console.log('New socket with id: ', connection.socketId, asset));
+  }).then(asset => console.log('New socket with id: ', connection.socketId));
 });
 app.service('assets').publish((data, hook) => {
   return app.channel('everybody');
@@ -234,7 +235,6 @@ app.service('assets').publish((data, hook) => {
 const solarSystem = sol.assets();
 solarSystem.map(async (i) => {
   const asset = await app.service('assets').create(i);
-  console.log('Created', asset);
 });
 
 // ---- Game Loop ----
@@ -274,7 +274,7 @@ const gameLoop = async () => {
     let currenttick = gameLoopTicks;
     setTimeout(() => {
       app.service('assets').emit('networktick', {t: timestamp, assets: allChanges, ticks: currenttick});
-    }, (Math.random() * 100) + 80);
+    }, (Math.random() * 200) + 200);
   }
 
   // Account for the time drift 
