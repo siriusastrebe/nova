@@ -251,16 +251,15 @@ const gameLoop = async () => {
   if (assets.length > 0) {
     const allChanges = assets.map((asset) => {
       let forces = {};
-
       const changes = calculateAssetTick(asset);
       const userInput = userInputs[asset.socketId];
       if (userInput) {
         forces = calculateAssetForces(asset, userInput);
         const actions = assetActions(asset, userInput);
       }
-      const vitals = calculateAssetVitals(asset);
-
       Object.keys(forces).map((key) => { changes[key] = forces[key] });
+
+      changes.vitals = calculateAssetVitals(asset);
 
       changes.id = asset.id;
 
@@ -281,9 +280,8 @@ const gameLoop = async () => {
 }
 
 function assetActions(asset, input) {
-
-  // Shooting gun
   if (input.mousedown) {
+    // Shooting Weapons
     for (let weapon of asset.weapons) {
       if (weapon === 'charger') {
         if (asset.vitals.charge >  12) {
@@ -291,7 +289,6 @@ function assetActions(asset, input) {
           const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
           const v = new Three.Vector3(0, 0, 10000);
           v.applyQuaternion(orientation);
-
 
           if (asset.vitals.weaponCooldown === undefined || asset.vitals.weaponCooldown < new Date().getTime()) {
 
@@ -304,9 +301,9 @@ function assetActions(asset, input) {
               i: asset.i,
               j: asset.j,
               k: asset.k,
-              dx: v.x + asset.dx,
-              dy: v.y + asset.dy,
-              dz: v.z + asset.dz,
+              dx: asset.dx,
+              dy: asset.dy,
+              dz: asset.dz,
               vitals: {
                 birth: new Date(),
                 lifespan: 6000,
@@ -329,6 +326,9 @@ function assetActions(asset, input) {
             }
 
             app.service('assets').create(props).then((a, b) => {
+              a.dx = v.x + asset.dx;
+              a.dy = v.y + asset.dy;
+              a.dz = v.z + asset.dz;
             });
           }
         }
@@ -347,11 +347,12 @@ function calculateAssetVitals(asset) {
     if (asset.vitals.lifespan && asset.vitals.birth) {
       if (asset.vitals.birth.getTime() + asset.vitals.lifespan < new Date().getTime()) {
         app.service('assets').remove(asset.id).then((a, b) => {
-          console.log('Deleted', asset.name, asset.id);
         });
+        asset.vitals.removed = true;
       }
     }
   }
+  return asset.vitals;
 }
 
 

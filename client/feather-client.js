@@ -4,12 +4,13 @@ import auth from '@feathersjs/authentication-client'
 import socketio from '@feathersjs/socketio-client'
 import io from 'socket.io-client'
 
-// ---- Feathers ----
+// ----------------------------------------------------------------
+// Feathers
+// ----------------------------------------------------------------
 export default function initializeFeathers(addAsset, updateAsset, removeAsset, setControlledAsset, timer) {
 
   const socket = io(document.domain + ':80');
   const feathers = createFeathersClient();
-  let assets = [];
   let controlling;
   let userInputs = {};
 
@@ -23,57 +24,28 @@ export default function initializeFeathers(addAsset, updateAsset, removeAsset, s
   );
 
   feathers.service('assets').find().then((a) => {
-    for (let id in a) {
-      const asset = a[id];
-      const existing = assets.find(a => a.id === asset.id)
-      if (!existing) {
-        addAsset(asset);
-        assets.push(asset);
-
-        if (asset.socketId === socket.id) {
-          controlling = asset;
-          setControlledAsset(controlling);
-        }
-      }
+    for (let asset of a) {
+      addAsset(asset);
+      controlCheck(asset, socket);
     };
   });
 
   feathers.service('assets').on('created', (asset) => {
     console.log('Asset created', asset);
-    const existing = assets.find(a => a.id === asset.id)
-    if (!existing) {
-      addAsset(asset);
-      assets.push(asset);
-
-      if (asset.socketId === socket.id) {
-        controlling = asset;
-        setControlledAsset(controlling);
-      }
-    }
+    addAsset(asset);
+    controlCheck(asset, socket);
   });
 
   feathers.service('assets').on('updated', (asset, b) => {
     console.log('Asset updated', asset);
     updateAsset(asset);
-    const current = assets.find(a => a.id === asset.id)
-    assets[assets.indexOf(current)] = asset;
-
-    if (asset.socketId === socket.id) {
-      controlling = asset;
-      setControlledAsset(controlling);
-    }
+    controlCheck(asset, socket);
   });
 
   feathers.service('assets').on('patched', (asset, b) => {
     console.log('Asset patched', asset);
     updateAsset(asset, b);
-    const current = assets.find(a => a.id === asset.id)
-    assets[assets.indexOf(current)] = asset;
-
-    if (asset.socketId === socket.id) {
-      controlling = asset;
-      setControlledAsset(controlling);
-    }
+    controlCheck(asset, socket);
   });
 
   feathers.service('assets').on('removed', (id, b) => {
@@ -100,6 +72,9 @@ export default function initializeFeathers(addAsset, updateAsset, removeAsset, s
     timer.roundtrip(data.start, new Date().getTime(), data.t);
   });
 
+  // ----------------------------------------------------------------
+  // User Inputs
+  // ----------------------------------------------------------------
   document.onkeydown = function (e) {
     if (controlling) {
       const action = keyToAction(e);
@@ -145,22 +120,31 @@ export default function initializeFeathers(addAsset, updateAsset, removeAsset, s
     }
     feathers.service('userInputs').patch(new Date().getTime(), params);
   };
+
+  // Helper Functions
+  function controlCheck(asset, socket) {
+    if (asset.socketId === socket.id) {
+      controlling = asset;
+      setControlledAsset(controlling);
+    }
+  }
 }
+
 
 function keyToAction(e) {
   const key = e.key.toLowerCase();
   let action;
-  if (key === 'w' || key === 'arrowup') {
+  if (key === 'w' || key === 'arrowup' || key === 'i') {
     action = 'forward';
-  } else if (key === 'a' || key === 'arrowleft') {
+  } else if (key === 'a' || key === 'arrowleft' || key === 'j') {
     action = 'left';
-  } else if (key === 's' || key === 'arrowdown') {
+  } else if (key === 's' || key === 'arrowdown' || key === 'k') {
     action = 'back';
-  } else if (key === 'd' || key === 'arrowright') {
+  } else if (key === 'd' || key === 'arrowright' || key === 'l') {
     action = 'right';
-  } else if (key === 'q') {
+  } else if (key === 'q' || key === 'u') {
     action = 'counterclockwise';
-  } else if (key === 'e') {
+  } else if (key === 'e' || key === 'o') {
     action = 'clockwise';
   } else if (key === ' ') {
     action = 'space';

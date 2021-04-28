@@ -234,89 +234,90 @@ export async function addAsset(asset) {
   console.log('Adding asset', asset.name);
 
   assets[asset.id] = asset;
+  if (asset[asset.id] === undefined) {
+    let model;
+    let bump;
+    let object;
+    let material;
+    let texture;
+    let textures = [];
 
-  let model;
-  let bump;
-  let object;
-  let material;
-  let texture;
-  let textures = [];
+    // Load Material
+    if (asset.material) {
+      const m = asset.material;
+      const o = {}
 
-  // Load Material
-  if (asset.material) {
-    const m = asset.material;
-    const o = {}
+      for (let key in m) {
+        if (key === 'map' || key === 'bumpMap' || key === 'displacementMap' || key === 'specularMap') {
+          o[key] = await tl(m[key]);
+        } else {
+          o[key] = m[key];
+        }
+      }
 
-    for (let key in m) {
-      if (key === 'map' || key === 'bumpMap' || key === 'displacementMap' || key === 'specularMap') {
-        o[key] = await tl(m[key]);
-      } else {
-        o[key] = m[key];
+      if (asset.type === 'player') {
+        material = new MeshPhongMaterial(o);
+        //cascadingShadowMap.setupMaterial(material); // must be called to pass all CSM-related uniforms to the shader
+      } else if (asset.type === 'environment') {
+        material = new MeshPhongMaterial(o);
+        cascadingShadowMap.setupMaterial(material); // must be called to pass all CSM-related uniforms to the shader
+      } else if (asset.type === 'projectile') {
+        material = new MeshBasicMaterial(o);
       }
     }
 
-    if (asset.type === 'player') {
-      material = new MeshPhongMaterial(o);
-      //cascadingShadowMap.setupMaterial(material); // must be called to pass all CSM-related uniforms to the shader
-    } else if (asset.type === 'environment') {
-      material = new MeshPhongMaterial(o);
-      cascadingShadowMap.setupMaterial(material); // must be called to pass all CSM-related uniforms to the shader
-    } else if (asset.type === 'projectile') {
-      material = new MeshBasicMaterial(o);
+    // Object & Geometry
+    if (asset.obj) {
+      if (asset.obj === 'sphere') {
+        const widthSegments = asset.scale > 1000 ? 196 : 5;
+        const heightSegments = widthSegments;
+        let geometry = new SphereBufferGeometry(asset.scale, widthSegments, heightSegments);
+        object = new Mesh(geometry, material);
+      } else {
+        object = await ol(asset.obj);
+
+        // Apply material to mesh
+        object.traverse(function (child) {
+          if (child.isMesh) {
+            child.material = material;
+          }
+        });
+      }
     }
+
+    object.receiveShadow = false;
+    object.castShadow = false;
+
+    asset.object = object;
+    scene.add(object);
+  } else {
+    console.log('attempting to add asset that already exists.');
   }
-
-  // Object & Geometry
-  if (asset.obj) {
-    if (asset.obj === 'sphere') {
-      const widthSegments = asset.scale > 1000 ? 196 : 5;
-      const heightSegments = widthSegments;
-      let geometry = new SphereBufferGeometry(asset.scale, widthSegments, heightSegments);
-      object = new Mesh(geometry, material);
-    } else {
-      object = await ol(asset.obj);
-
-      // Apply material to mesh
-      object.traverse(function (child) {
-        if (child.isMesh) {
-          child.material = material;
-        }
-      });
-    }
-  }
-
-  object.receiveShadow = false;
-  object.castShadow = false;
-
-  asset.object = object;
-  scene.add(object);
 }
-
 
 export function updateAsset(asset) {
-  const existing = assets[asset.id];
-  if (existing) {
-    for (let key in asset) {
-      if (existing[key] !== asset[key]) {
-        //if (Math.abs(existing[key] - asset[key]) > 0.1) {
-        //  console.log(key, existing[key] - asset[key]);
-        //}
-        existing[key] = asset[key];
+  if (asset.vitals === undefined || asset.vitals.removed !== true) {
+    const existing = assets[asset.id];
+    if (existing) {
+      for (let key in asset) {
+        if (existing[key] !== asset[key]) {
+          existing[key] = asset[key];
+        }
       }
+    } else {
+      console.error('Unable to update asset, no asset found with with the id ' + asset.id);
     }
-  } else {
-    console.error('Unable to update asset, no asset found with with the id ' + asset.id);
   }
 }
 
-export function removeAsset(asset) {
-  const existing = assets[asset.id];
+export function removeAsset(id) {
+  const existing = assets[id];
   if (existing) {
-console.log('removed asset', asset.id);
-    scene.remove(asset.object);
-    delete(assets[asset.id]);
+    console.log('removed asset', id);
+    scene.remove(existing.object);
+    delete(assets[id]);
   } else {
-    console.error('Unable to remove asset, no asset found with with the id ' + asset.id);
+    console.error('Unable to remove asset, no asset found with with the id ' + id);
   }
 }
 
