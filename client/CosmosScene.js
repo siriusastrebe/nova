@@ -23,7 +23,10 @@ class Timer {
     // Adjust start time to match average ping
     const delta = this.delta();
     if (Math.abs(delta) > 0.01) {
-      this.start = new Date(this.start.getTime() + Math.trunc(delta * 100));
+      let shift = Math.trunc(delta * 100);
+      // Clamp
+      shift = shift < -10 ? -10 : (shift > 10 ? 10 : shift);
+      this.start = new Date(this.start.getTime() + shift);
     }
   }
   startTimer(ticks, serverTime) {
@@ -47,7 +50,6 @@ class Timer {
     this.roundTrips.unshift(trip);
     // Shave off for efficiency
     if (this.roundTrips.length > 150) this.roundTrips.length = 100;
-
 
     document.getElementById('ping').innerHTML = Math.floor(this.latestPing);
   }
@@ -291,8 +293,6 @@ export async function addAsset(asset) {
 }
 
 
-export {timer}
-
 export function updateAsset(asset) {
   const existing = assets[asset.id];
   if (existing) {
@@ -305,7 +305,18 @@ export function updateAsset(asset) {
       }
     }
   } else {
-    console.log('Unable to update asset, no asset found with with the id ' + asset.id);
+    console.error('Unable to update asset, no asset found with with the id ' + asset.id);
+  }
+}
+
+export function removeAsset(asset) {
+  const existing = assets[asset.id];
+  if (existing) {
+console.log('removed asset', asset.id);
+    scene.remove(asset.object);
+    delete(assets[asset.id]);
+  } else {
+    console.error('Unable to remove asset, no asset found with with the id ' + asset.id);
   }
 }
 
@@ -317,6 +328,9 @@ export function setControlledAsset(asset) {
     console.error('Unable to setControlledAsset, no asset found with with the id ' + asset.id);
   }
 }
+
+
+export {timer}
 
 
 

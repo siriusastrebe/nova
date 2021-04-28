@@ -76,8 +76,8 @@ export default function initializeFeathers(addAsset, updateAsset, removeAsset, s
     }
   });
 
-  feathers.service('assets').on('removed', (asset, b) => {
-    console.log('removed', asset, b);
+  feathers.service('assets').on('removed', (id, b) => {
+    removeAsset(id);
   });
 
   feathers.service('assets').on('networktick', (data) => {
