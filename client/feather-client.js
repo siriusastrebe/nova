@@ -5,7 +5,7 @@ import socketio from '@feathersjs/socketio-client'
 import io from 'socket.io-client'
 
 // ---- Feathers ----
-export default function initializeFeathers(addAsset, updateAsset, setControlledAsset, timer) {
+export default function initializeFeathers(addAsset, updateAsset, removeAsset, setControlledAsset, timer) {
 
   const socket = io(document.domain + ':80');
   const feathers = createFeathersClient();
@@ -76,6 +76,10 @@ export default function initializeFeathers(addAsset, updateAsset, setControlledA
     }
   });
 
+  feathers.service('assets').on('removed', (asset, b) => {
+    console.log('removed', asset, b);
+  });
+
   feathers.service('assets').on('networktick', (data) => {
     const assets = data.assets;
     const ticks = data.ticks;
@@ -108,7 +112,6 @@ export default function initializeFeathers(addAsset, updateAsset, setControlledA
         }
 
         feathers.service('userInputs').patch(new Date().getTime(), params).then((a, b) => {
-          console.log('aardvark', a, b);
         });
       }
     }

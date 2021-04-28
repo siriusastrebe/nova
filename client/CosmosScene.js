@@ -267,7 +267,9 @@ export async function addAsset(asset) {
   // Object & Geometry
   if (asset.obj) {
     if (asset.obj === 'sphere') {
-      let geometry = new SphereBufferGeometry(asset.scale, 196, 196);
+      const widthSegments = asset.scale > 1000 ? 196 : 5;
+      const heightSegments = widthSegments;
+      let geometry = new SphereBufferGeometry(asset.scale, widthSegments, heightSegments);
       object = new Mesh(geometry, material);
     } else {
       object = await ol(asset.obj);

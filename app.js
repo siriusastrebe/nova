@@ -140,13 +140,14 @@ class AssetsService {
     return this.assets[id];
   }
   async remove(id, params) {
-   const asset = this.assets[id];
-   if (asset) {
-     if (asset.socketId && this.assetsBySocket[asset.socketId]) {
-       delete this.assetsBySocket[asset.socketId]
-     }
-     delete this.assets[id];
+    const asset = this.assets[id];
+    if (asset) {
+      if (asset.socketId && this.assetsBySocket[asset.socketId]) {
+        delete this.assetsBySocket[asset.socketId]
+      }
+      delete this.assets[id];
     }
+    return id;
   }
   async patch(id, params) {
     const asset = this.assets[id];
@@ -190,6 +191,7 @@ app.on('connection', (connection, b) => {
   const ship = randomSpaceship();
 
   app.service('assets').create({
+    name: 'Pilum',
     material: {
       map: ship.texture,
       specular: 0x222222,
@@ -254,8 +256,10 @@ const gameLoop = async () => {
       const userInput = userInputs[asset.socketId];
       if (userInput) {
         forces = calculateAssetForces(asset, userInput);
-        assetActions(asset, userInput);
+        const actions = assetActions(asset, userInput);
       }
+      const vitals = calculateAssetVitals(asset);
+
       Object.keys(forces).map((key) => { changes[key] = forces[key] });
 
       changes.id = asset.id;
@@ -288,44 +292,66 @@ function assetActions(asset, input) {
           const v = new Three.Vector3(0, 0, 10000);
           v.applyQuaternion(orientation);
 
-          const props = {
-            obj: 'sphere',
-            x: asset.x,
-            y: asset.y,
-            z: asset.z,
-            w: asset.w,
-            i: asset.i,
-            j: asset.j,
-            k: asset.k,
-            dx: v.x + asset.dx,
-            dy: v.y + asset.dy,
-            dz: v.z + asset.dz,
-            type: 'projectile',
-            material: {
-              color: 0xFF0000,
+
+          if (asset.vitals.weaponCooldown === undefined || asset.vitals.weaponCooldown < new Date().getTime()) {
+
+            const props = {
+              obj: 'sphere',
+              x: asset.x,
+              y: asset.y,
+              z: asset.z,
+              w: asset.w,
+              i: asset.i,
+              j: asset.j,
+              k: asset.k,
+              dx: v.x + asset.dx,
+              dy: v.y + asset.dy,
+              dz: v.z + asset.dz,
+              vitals: {
+                birth: new Date(),
+                lifespan: 6000,
+              },
+              type: 'projectile',
+              material: {
+                color: 0xFF0000,
+              }
             }
-          }
 
-          if (asset.vitals.charge >= 100) {
-            asset.vitals.charge -= 40;
-            props.name = 'Charge shot',
-            props.scale = 120;
-          } else {
-            props.name = 'Rapid shot',
-            asset.vitals.charge -= 12;
-            props.scale = 20;
-          }
+            if (asset.vitals.charge >= 100) {
+              asset.vitals.charge -= 40;
+              props.name = 'Charge shot';
+              props.scale = 120;
+              asset.vitals.weaponCooldown = new Date().getTime() + 300;
+            } else {
+              props.name = 'Rapid shot';
+              asset.vitals.charge -= 7;
+              props.scale = 20;
+            }
 
-          app.service('assets').create(props).then((a, b) => {
-            console.log('Shooting', props.name);
-          });
+            app.service('assets').create(props).then((a, b) => {
+            });
+          }
         }
       }
     }
   }
+}
 
-  if (asset.vitals.charge < 100) asset.vitals.charge += 3;
-  if (asset.vitals.charge > 100) asset.vitals.charge = 100;
+function calculateAssetVitals(asset) {
+  if (asset.vitals) {
+    // Charge
+    if (asset.vitals.charge < 100) asset.vitals.charge += 3;
+    if (asset.vitals.charge > 100) asset.vitals.charge = 100;
+
+    // Lifespan
+    if (asset.vitals.lifespan && asset.vitals.birth) {
+      if (asset.vitals.birth.getTime() + asset.vitals.lifespan < new Date().getTime()) {
+        app.service('assets').remove(asset.id).then((a, b) => {
+          console.log('Deleted', asset.name, asset.id);
+        });
+      }
+    }
+  }
 }
 
 
