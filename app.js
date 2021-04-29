@@ -283,27 +283,31 @@ function assetActions(asset, input) {
   if (input.mousedown) {
     // Shooting Weapons
     for (let weapon of asset.weapons) {
-      if (weapon === 'charger') {
+      if (weapon.name === 'charger') {
         if (asset.vitals.charge >  12) {
 
           const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
           const v = new Three.Vector3(0, 0, 10000);
           v.applyQuaternion(orientation);
 
-          if (asset.vitals.weaponCooldown === undefined || asset.vitals.weaponCooldown < new Date().getTime()) {
+          const positions = []
+          for (let i=0; i<weapon.positions.length; i++) {
+            const p = weapon.positions[i];
+            const w = new Three.Vector3(p[0], p[1], p[2]);
+            positions[i] = w.applyQuaternion(orientation);
+          }
 
+          if (asset.vitals.weaponCooldown === undefined || asset.vitals.weaponCooldown < new Date().getTime()) {
             const props = {
               obj: 'sphere',
-              x: asset.x,
-              y: asset.y,
-              z: asset.z,
               w: asset.w,
               i: asset.i,
               j: asset.j,
               k: asset.k,
-              dx: asset.dx,
-              dy: asset.dy,
-              dz: asset.dz,
+              dx: v.x + asset.dx,
+              dy: v.y + asset.dy,
+              dz: v.z + asset.dz,
+              t: new Date(),
               vitals: {
                 birth: new Date(),
                 lifespan: 6000,
@@ -315,21 +319,36 @@ function assetActions(asset, input) {
             }
 
             if (asset.vitals.charge >= 100) {
-              asset.vitals.charge -= 40;
               props.name = 'Charge shot';
               props.scale = 120;
+              props.x = asset.x + positions[0].x;
+              props.y = asset.y + positions[0].y;
+              props.z = asset.z + positions[0].z;
+
+              asset.vitals.charge -= 40;
               asset.vitals.weaponCooldown = new Date().getTime() + 300;
+
+              app.service('assets').create(props).then((a, b) => {
+              });
             } else {
               props.name = 'Rapid shot';
-              asset.vitals.charge -= 7;
               props.scale = 20;
-            }
+              props.x = asset.x + positions[1].x;
+              props.y = asset.y + positions[1].y;
+              props.z = asset.z + positions[1].z;
 
-            app.service('assets').create(props).then((a, b) => {
-              a.dx = v.x + asset.dx;
-              a.dy = v.y + asset.dy;
-              a.dz = v.z + asset.dz;
-            });
+              props2 = JSON.parse(JSON.stringify(props));
+              props2.x = asset.x + positions[2].x;
+              props2.y = asset.y + positions[2].y;
+              props2.z = asset.z + positions[2].z;
+
+              asset.vitals.charge -= 7;
+
+              app.service('assets').create(props).then((a, b) => {
+              });
+              app.service('assets').create(props2).then((a, b) => {
+              });
+            }
           }
         }
       }
@@ -338,14 +357,14 @@ function assetActions(asset, input) {
 }
 
 function calculateAssetVitals(asset) {
-  if (asset.vitals) {
+  if (asset.vitals && asset.removed !== true) {
     // Charge
     if (asset.vitals.charge < 100) asset.vitals.charge += 3;
     if (asset.vitals.charge > 100) asset.vitals.charge = 100;
 
     // Lifespan
     if (asset.vitals.lifespan && asset.vitals.birth) {
-      if (asset.vitals.birth.getTime() + asset.vitals.lifespan < new Date().getTime()) {
+      if (asset.vitals.birth + asset.vitals.lifespan < new Date().getTime()) {
         app.service('assets').remove(asset.id).then((a, b) => {
         });
         asset.vitals.removed = true;
@@ -480,7 +499,10 @@ function randomSpaceship() {
 //  }, {
     obj: '/public/SpaceFighter02/SpaceFighter02.obj',
     texture: '/public/SpaceFighter02/F02_512.jpg',
-    weapons: ['charger'],
+    weapons: [{
+      name: 'charger',
+      positions: [[0, 50, 250], [150, 40, 40], [-150, 40, 40]],
+    }],
 //  }, {
 //    obj: '/public/SpaceFighter03/SpaceFighter03.obj',
 //    texture: '/public/SpaceFighter03/F03_512.jpg'
