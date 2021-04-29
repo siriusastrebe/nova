@@ -309,7 +309,7 @@ function assetActions(asset, input) {
               dz: v.z + asset.dz,
               t: new Date(),
               vitals: {
-                birth: new Date(),
+                birth: new Date().getTime(),
                 lifespan: 6000,
               },
               type: 'projectile',
@@ -501,7 +501,7 @@ function randomSpaceship() {
     texture: '/public/SpaceFighter02/F02_512.jpg',
     weapons: [{
       name: 'charger',
-      positions: [[0, 50, 250], [150, 40, 40], [-150, 40, 40]],
+      positions: [[0, 50, 250], [150, 40, 120], [-150, 40, 120]],
     }],
 //  }, {
 //    obj: '/public/SpaceFighter03/SpaceFighter03.obj',
