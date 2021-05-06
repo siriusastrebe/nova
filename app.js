@@ -191,7 +191,7 @@ app.on('connection', (connection, b) => {
   const ship = randomSpaceship();
 
   app.service('assets').create({
-    name: 'Pilum',
+    name: 'Panther',
     material: {
       map: ship.texture,
       specular: 0x222222,
@@ -199,7 +199,7 @@ app.on('connection', (connection, b) => {
     weapons: ship.weapons,
     obj: ship.obj,
     x: 0,
-    y: 5000,
+    y: 1200,
     z: 0,
     dx: 0,
     dy: 0,
@@ -381,8 +381,8 @@ function calculateAssetVitals(asset) {
 function calculateAssetForces(asset, userInput) {
   const angularDrag = 3;
   const torqueRadians = 4;
-  const dragRatio = 0.0001;
-  const engineSpeed = 20000;
+  const dragRatio = 0.00006;
+  const engineSpeed = 6000;
 
   // Position/Velocity/Acceleration
   const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);

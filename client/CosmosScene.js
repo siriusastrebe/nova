@@ -1,4 +1,4 @@
-import { TextureLoader, BufferGeometry, BufferAttribute, PlaneGeometry, Scene, PerspectiveCamera, Vector3, Matrix4, WebGLRenderer, PCFSoftShadowMap, SphereBufferGeometry, Mesh, MeshLambertMaterial, SpotLight, LineBasicMaterial, AmbientLight, Line, MeshBasicMaterial, MeshPhongMaterial, DoubleSide, Euler, Quaternion, AxesHelper, GridHelper, MathUtils, Float32BufferAttribute, PointsMaterial, Points, ShaderMaterial, AdditiveBlending, NormalBlending, Color, DirectionalLight, PointLight, SVGRenderer, SVGObject, TetrahedronGeometry, DynamicDrawUsage, StaticDrawUsage  } from 'three';
+import { TextureLoader, BufferGeometry, BufferAttribute, Scene, PerspectiveCamera, Vector3, WebGLRenderer, PCFSoftShadowMap, SphereBufferGeometry, Mesh, LineBasicMaterial, AmbientLight, Line, MeshBasicMaterial, MeshPhongMaterial, Euler, Quaternion, PointsMaterial, Points, PointLight, StaticDrawUsage, Color, Float32BufferAttribute } from 'three';
 import { Lensflare, LensflareElement } from 'three/examples/jsm/objects/Lensflare';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js';
@@ -113,11 +113,67 @@ function init() {
 
   renderer.setSize(windowWidth(), windowHeight());
 
-  const gridHelper = new GridHelper( 500000, 50, 0x0000ff, 0x808080 );
-  scene.add(gridHelper);
 
-  let worldAxis = new AxesHelper(2000);
-  scene.add(worldAxis);
+  const gray = new Color( 0x555555 );
+  const darkgray = new Color( 0x222222 );
+
+  const xoffset = columns % 2 === 1 ? 0 : 500;
+  const columns = 10;
+  for ( let i=0; i<columns; i++) {
+    const vertices = [], colors = [];
+    let a = 0;
+
+    const x = i - Math.floor(columns/2);
+    vertices.push( x * 1000 + xoffset, 0, -100000, x * 1000 + xoffset, 0, 100000 );
+    //vertices.push( 50000, 0, 0, 50000, 0, 0 );
+
+    const color = gray;
+    color.toArray( colors, a ); a += 3;
+    color.toArray( colors, a ); a += 3;
+    color.toArray( colors, a ); a += 3;
+    color.toArray( colors, a ); a += 3;
+    
+    const geometry = new BufferGeometry();
+    geometry.setAttribute( 'position', new Float32BufferAttribute( vertices, 3 ) );
+    geometry.setAttribute( 'color', new Float32BufferAttribute( colors, 3 ) );
+
+    const material = new LineBasicMaterial( { vertexColors: true } );
+
+    const line = new Line( geometry, material );
+    scene.add(line);
+  }
+
+  const rows = 100;
+  for ( let j=0; j<=rows; j++) {
+    const vertices = [], colors = [];
+    let a = 0;
+    const x = -Math.floor(columns/2) * 1000 + xoffset;
+    const zSubdivision = (j * 200000 / rows);
+    const z = -100000 + zSubdivision;
+    vertices.push( x, 0, z, -x, 0, z );
+
+    const color = darkgray;
+    color.toArray( colors, a ); a += 3;
+    color.toArray( colors, a ); a += 3;
+    color.toArray( colors, a ); a += 3;
+    color.toArray( colors, a ); a += 3;
+    
+    const geometry = new BufferGeometry();
+    geometry.setAttribute( 'position', new Float32BufferAttribute( vertices, 3 ) );
+    geometry.setAttribute( 'color', new Float32BufferAttribute( colors, 3 ) );
+
+    const material = new LineBasicMaterial( { vertexColors: true } );
+
+    const line = new Line( geometry, material );
+    scene.add(line);
+  }
+
+  
+  //const gridHelper = new GridHelper( 500000, 50, 0x0000ff, 0x808080 );
+  //scene.add(gridHelper);
+
+  //let worldAxis = new AxesHelper(2000);
+  //scene.add(worldAxis);
 
   requestAnimationFrame(() => animate(0));
 }
@@ -341,7 +397,7 @@ export {timer}
 function createSun() {
   let light = new PointLight( 0xffffff, 0, 0 );
   light.castShadow = false;
-  light.position.set(-800000, 80000, 0);
+  light.position.set(-8000000, 800000, 0);
 
   let lensflare = new Lensflare();
 
