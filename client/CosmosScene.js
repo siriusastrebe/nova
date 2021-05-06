@@ -86,7 +86,7 @@ function init() {
 
   const fov = 70;
   const near = 0.1;
-  const far = 1000000;
+  const far = 10000000;
   camera = new PerspectiveCamera(fov, windowWidth() / windowHeight(), near, far);
   camera.position.set(0, 0, -300);
 
@@ -113,7 +113,7 @@ function init() {
 
   renderer.setSize(windowWidth(), windowHeight());
 
-  const gridHelper = new GridHelper( 4000, 40, 0x0000ff, 0x808080 );
+  const gridHelper = new GridHelper( 500000, 50, 0x0000ff, 0x808080 );
   scene.add(gridHelper);
 
   let worldAxis = new AxesHelper(2000);
@@ -502,9 +502,9 @@ function equitorialToCartesian(dec, ra) {
   let decR = Number(dec) / 180 * Math.PI;
   let raR = Number(ra) / 24 * Math.PI * 2;
   let pos = {}
-  pos.z = Math.cos(raR) * Math.cos(decR)  * 100000;
-  pos.x = Math.sin(raR) * Math.cos(decR) * 100000;
-  pos.y = Math.sin(decR) * 100000;
+  pos.z = Math.cos(raR) * Math.cos(decR)  * 10000000;
+  pos.x = Math.sin(raR) * Math.cos(decR) * 10000000;
+  pos.y = Math.sin(decR) * 10000000;
   return pos;
 }
 function promisify(f, that) {

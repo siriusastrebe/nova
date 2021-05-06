@@ -31,7 +31,6 @@ export default function initializeFeathers(addAsset, updateAsset, removeAsset, s
   });
 
   feathers.service('assets').on('created', (asset) => {
-    console.log('Asset created', asset);
     addAsset(asset);
     controlCheck(asset, socket);
   });

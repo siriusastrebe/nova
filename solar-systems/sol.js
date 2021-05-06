@@ -12,8 +12,8 @@ exports.assets = function () {
     dj: 0.003,
     x: 0,
     y: 0,
-    z: -52000,
-    scale: 3200,
+    z: -5200000,
+    scale: 3200000,
   }, {
     name: 'Moon',
     type: 'environment',
@@ -34,8 +34,8 @@ exports.assets = function () {
     k: 0,
     x: 0,
     y: 0,
-    z: 88000,
-    scale: 1600
+    z: 8800000,
+    scale: 1600000
   }/*, {
     name: 'Sun',
     type: 'environment',

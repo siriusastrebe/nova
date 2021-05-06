@@ -198,9 +198,9 @@ app.on('connection', (connection, b) => {
     },
     weapons: ship.weapons,
     obj: ship.obj,
-    x: Math.random() * 100,
-    y: Math.random() * 100,
-    z: Math.random() * 100,
+    x: 0,
+    y: 5000,
+    z: 0,
     dx: 0,
     dy: 0,
     dz: 0,
@@ -267,6 +267,9 @@ const gameLoop = async () => {
     });
 
     const timestamp = new Date().getTime();
+
+    // Timed game events
+    calculateTimedEvents(gameLoopTicks);
 
     // Simulate lag
     let currenttick = gameLoopTicks;
@@ -481,6 +484,35 @@ function calculateAssetTick(asset) {
     k: asset.k,
 
     t: asset.t
+  }
+}
+
+function calculateTimedEvents(tick) {
+  if (tick % 80 === 0) {
+    app.service('assets').create({
+      name: 'Asteroid',
+      obj: 'sphere',
+      w: 1,
+      i: 0,
+      j: 0,
+      k: 0,
+      x: -50000 * Math.random() * 100000,
+      y: 1000 + Math.random() * 9000,
+      z: 50000,
+      dx: 0,
+      dy: 0,
+      dz: -100 - Math.random() * 900,
+      scale: 10000,
+      t: new Date(),
+      vitals: {
+        birth: new Date().getTime(),
+        lifespan: 60 * 1000,
+      },
+      type: 'projectile',
+      material: {
+        color: 0xffffff,
+      }
+    });
   }
 }
 
