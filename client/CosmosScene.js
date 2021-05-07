@@ -24,8 +24,8 @@ class Timer {
     const delta = this.delta();
     if (Math.abs(delta) > 0.01) {
       let shift = Math.trunc(delta * 100);
-      // Clamp
-      shift = shift < -10 ? -10 : (shift > 10 ? 10 : shift);
+      // Clamp, but bias towards lower ping
+      shift = shift > 10 ? 10 : shift;
       this.start = new Date(this.start.getTime() + shift);
     }
   }
@@ -76,6 +76,7 @@ let cascadingShadowMap;
 
 let assets = {};
 let controlledAsset;
+let introFrames = 100;
 
 init();
 
@@ -88,10 +89,12 @@ function init() {
   const near = 0.1;
   const far = 10000000;
   camera = new PerspectiveCamera(fov, windowWidth() / windowHeight(), near, far);
-  camera.position.set(0, 0, -300);
+  camera.position.set(0, 0, -1);
+  camera.lookAt(new Vector3(0, 0, -1));
 
   starCamera = new PerspectiveCamera(fov, windowWidth() / windowHeight(), near, far);
   starCamera.position.set(0, 0, 0);
+  starCamera.lookAt(new Vector3(0, 0, 1));
 
   renderer = new WebGLRenderer( { antialias: true } );
   renderer.shadowMap.enabled = true;
@@ -114,8 +117,8 @@ function init() {
   renderer.setSize(windowWidth(), windowHeight());
 
 
-  const gray = new Color( 0x555555 );
-  const darkgray = new Color( 0x222222 );
+  const color1 = new Color( 0x357585 );
+  const color2 = new Color( 0x232393 );
 
   const xoffset = columns % 2 === 1 ? 0 : 500;
   const columns = 10;
@@ -127,7 +130,7 @@ function init() {
     vertices.push( x * 1000 + xoffset, 0, -100000, x * 1000 + xoffset, 0, 100000 );
     //vertices.push( 50000, 0, 0, 50000, 0, 0 );
 
-    const color = gray;
+    const color = color1;
     color.toArray( colors, a ); a += 3;
     color.toArray( colors, a ); a += 3;
     color.toArray( colors, a ); a += 3;
@@ -152,7 +155,7 @@ function init() {
     const z = -100000 + zSubdivision;
     vertices.push( x, 0, z, -x, 0, z );
 
-    const color = darkgray;
+    const color = color2;
     color.toArray( colors, a ); a += 3;
     color.toArray( colors, a ); a += 3;
     color.toArray( colors, a ); a += 3;

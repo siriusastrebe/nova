@@ -381,8 +381,8 @@ function calculateAssetVitals(asset) {
 function calculateAssetForces(asset, userInput) {
   const angularDrag = 3;
   const torqueRadians = 4;
-  const dragRatio = 0.00006;
-  const engineSpeed = 6000;
+  const dragRatio = 0.00007;
+  const engineSpeed = 5000;
 
   // Position/Velocity/Acceleration
   const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
@@ -496,13 +496,13 @@ function calculateTimedEvents(tick) {
       i: 0,
       j: 0,
       k: 0,
-      x: -50000 * Math.random() * 100000,
+      x: 0,
       y: 1000 + Math.random() * 9000,
-      z: 50000,
+      z: 120000,
       dx: 0,
       dy: 0,
       dz: -100 - Math.random() * 900,
-      scale: 10000,
+      scale: 1000,
       t: new Date(),
       vitals: {
         birth: new Date().getTime(),
