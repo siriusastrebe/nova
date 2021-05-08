@@ -7,7 +7,7 @@ import io from 'socket.io-client'
 // ----------------------------------------------------------------
 // Feathers
 // ----------------------------------------------------------------
-export default function initializeFeathers(addAsset, updateAsset, removeAsset, setControlledAsset, timer) {
+export default function initializeFeathers(addAsset, updateAsset, removeAsset, setControlledAsset, ignite, quench, timer) {
 
   const socket = io(document.domain + ':80');
   const feathers = createFeathersClient();
@@ -84,6 +84,10 @@ export default function initializeFeathers(addAsset, updateAsset, removeAsset, s
         const params = {
           [action]: true
         }
+        
+        if (action === 'space') {
+          ignite();
+        }
 
         feathers.service('userInputs').patch(new Date().getTime(), params).then((a, b) => {
         });
@@ -101,6 +105,11 @@ export default function initializeFeathers(addAsset, updateAsset, removeAsset, s
         const params = {
           [action]: false
         }
+
+        if (action === 'space') {
+          quench();
+        }
+
         feathers.service('userInputs').patch(new Date().getTime(), params);
       }
     }

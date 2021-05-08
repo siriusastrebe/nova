@@ -1,4 +1,4 @@
-import { TextureLoader, BufferGeometry, BufferAttribute, Scene, PerspectiveCamera, Vector3, WebGLRenderer, PCFSoftShadowMap, SphereBufferGeometry, Mesh, LineBasicMaterial, AmbientLight, Line, MeshBasicMaterial, MeshPhongMaterial, Euler, Quaternion, PointsMaterial, Points, PointLight, StaticDrawUsage, Color, Float32BufferAttribute } from 'three';
+import { TextureLoader, BufferGeometry, BufferAttribute, Scene, PerspectiveCamera, Vector3, WebGLRenderer, PCFSoftShadowMap, SphereBufferGeometry, Mesh, LineBasicMaterial, AmbientLight, Line, MeshBasicMaterial, MeshPhongMaterial, Euler, Quaternion, PointsMaterial, Points, PointLight, StaticDrawUsage, Color, Float32BufferAttribute, Group, ConeGeometry } from 'three';
 import { Lensflare, LensflareElement } from 'three/examples/jsm/objects/Lensflare';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js';
@@ -67,6 +67,7 @@ let cameraDistance = 800;
 let textureLoader = new TextureLoader();
 let objLoader = new OBJLoader();
 let svgLoader = new SVGLoader();
+
 // Promisfy Loaders
 const tl = promisify(textureLoader.load, textureLoader);
 const ol = promisify(objLoader.load, objLoader);
@@ -83,7 +84,6 @@ init();
 function init() {
   scene = new Scene();
   sceneStars = new Scene();
-
 
   const fov = 70;
   const near = 0.1;
@@ -231,6 +231,7 @@ function render() {
 
   // Camera fixing
   if (controlledAsset && controlledAsset.object) {
+    const position = new Vector3(controlledAsset.object.position.x, controlledAsset.object.position.y, controlledAsset.object.position.z);
     const orientation = controlledAsset.object.quaternion;
 
     // For some reason the camera is flipped 180° and mirrored
@@ -243,14 +244,38 @@ function render() {
 
     const vectorOrientation = new Vector3(0, 0, 1).applyQuaternion(opposite);
 
-    camera.position.x = controlledAsset.object.position.x + vectorOrientation.x * cameraDistance;
-    camera.position.y = controlledAsset.object.position.y + vectorOrientation.y * cameraDistance;
-    camera.position.z = controlledAsset.object.position.z + vectorOrientation.z * cameraDistance;
+    camera.position.x = position.x + vectorOrientation.x * cameraDistance;
+    camera.position.y = position.y + vectorOrientation.y * cameraDistance;
+    camera.position.z = position.z + vectorOrientation.z * cameraDistance;
 
     opposite.multiply(upwardsAdjustment);
     camera.setRotationFromQuaternion(opposite);
     // Don't forget to rotate star camera (rooted at origin)
     starCamera.setRotationFromQuaternion(opposite);
+
+    // Ignition
+    if (ignition.children.length > 0) {
+      ignition.position.x = position.x;
+      ignition.position.y = position.y;
+      ignition.position.z = position.z;
+      ignition.setRotationFromQuaternion(orientation);
+
+      const ignitionAmount = Math.min(((new Date() - ignitionTime) / 400), 1);
+
+      for (let i=0; i<ignition.children.length; i++) {
+        const child = ignition.children[i];
+        child.scale.x = child.scale.y = child.scale.z = ignitionAmount;
+        child.position.z = -i*40 -160 + (1-ignitionAmount)*(60+i*40); // Relative to the group
+      }
+
+      if (ignitionLight) {
+        const behindOffset = new Vector3(0, 0, -200).applyQuaternion(orientation);
+        ignitionLight.position.x = position.x + behindOffset.x;
+        ignitionLight.position.y = position.y + behindOffset.y;
+        ignitionLight.position.z = position.z + behindOffset.z;
+      }
+
+    }
   }
 
   // Trick to allow multiple scenes on a single renderer
@@ -386,6 +411,43 @@ export function setControlledAsset(asset) {
     controlledAsset = existing;
   } else {
     console.error('Unable to setControlledAsset, no asset found with with the id ' + asset.id);
+  }
+}
+
+let ignition = new Group();
+let ignitionLight = new PointLight( 0xff0044, 10, 300 );
+let ignitionTime;
+scene.add(ignition);
+export function ignite() {
+  const colors = [0x0000ff, 0xff1200];
+  const opacities = [0.8, 0.6];
+  for (let i=0; i<2; i++) {
+    const geometry = new ConeGeometry( 13+i*2, 100+i*80, 12, 1, true );
+    const material = new MeshBasicMaterial({color: colors[i], transparent: true, opacity: opacities[i]});
+    const cone = new Mesh(geometry, material);
+    cone.setRotationFromEuler(new Euler(-Math.PI/2, 0, 0, 'XYZ'));
+    cone.position.z = -i*40 -160;
+    cone.position.y = 24;
+    ignition.add(cone);
+  }
+
+  if (controlledAsset) {
+    scene.add(ignitionLight);
+  }
+
+  ignitionTime = new Date();
+}
+
+export function quench() {
+  console.log('quenching', ignition);
+  while(ignition.children.length > 0) {
+    const child = ignition.children[0];
+    scene.remove(child);
+    ignition.remove(child);
+  }
+
+  if (ignitionLight !== undefined) {
+    scene.remove(ignitionLight);
   }
 }
 
