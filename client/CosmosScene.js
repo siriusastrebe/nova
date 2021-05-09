@@ -1,4 +1,4 @@
-import { TextureLoader, BufferGeometry, BufferAttribute, Scene, PerspectiveCamera, Vector3, WebGLRenderer, PCFSoftShadowMap, SphereBufferGeometry, Mesh, LineBasicMaterial, AmbientLight, Line, MeshBasicMaterial, MeshPhongMaterial, Euler, Quaternion, PointsMaterial, Points, PointLight, StaticDrawUsage, Color, Float32BufferAttribute, Group, ConeGeometry } from 'three';
+import { TextureLoader, BufferGeometry, BufferAttribute, Scene, PerspectiveCamera, Vector2, Vector3, WebGLRenderer, PCFSoftShadowMap, SphereBufferGeometry, Mesh, LineBasicMaterial, AmbientLight, Line, MeshBasicMaterial, MeshPhongMaterial, MeshLambertMaterial, Euler, Quaternion, PointsMaterial, Points, PointLight, StaticDrawUsage, Color, Float32BufferAttribute, Group, ConeGeometry, RepeatWrapping } from 'three';
 import { Lensflare, LensflareElement } from 'three/examples/jsm/objects/Lensflare';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js';
@@ -255,12 +255,12 @@ function render() {
 
     // Ignition
     if (ignition.children.length > 0) {
-      ignition.position.x = position.x;
-      ignition.position.y = position.y;
-      ignition.position.z = position.z;
+      ignition.position.x = position.x + -1+Math.random()*2;
+      ignition.position.y = position.y + -1+Math.random()*2;
+      ignition.position.z = position.z + -1+Math.random()*2;
       ignition.setRotationFromQuaternion(orientation);
 
-      const ignitionAmount = Math.min(((new Date() - ignitionTime) / 400), 1);
+      const ignitionAmount = Math.min(((new Date() - ignitionTime) / 200), 1);
 
       for (let i=0; i<ignition.children.length; i++) {
         const child = ignition.children[i];
@@ -269,7 +269,7 @@ function render() {
       }
 
       if (ignitionLight) {
-        const behindOffset = new Vector3(0, 0, -200).applyQuaternion(orientation);
+        const behindOffset = new Vector3(0, 20+Math.random()*8, -160 + -40*ignitionAmount).applyQuaternion(orientation);
         ignitionLight.position.x = position.x + behindOffset.x;
         ignitionLight.position.y = position.y + behindOffset.y;
         ignitionLight.position.z = position.z + behindOffset.z;
@@ -323,8 +323,6 @@ export async function addAsset(asset) {
     let bump;
     let object;
     let material;
-    let texture;
-    let textures = [];
 
     // Load Material
     if (asset.material) {
@@ -332,8 +330,18 @@ export async function addAsset(asset) {
       const o = {}
 
       for (let key in m) {
-        if (key === 'map' || key === 'bumpMap' || key === 'displacementMap' || key === 'specularMap') {
+        if (key === 'map' || key === 'bumpMap' || key === 'displacementMap' || key === 'specularMap' || key === 'normalMap') {
+
           o[key] = await tl(m[key]);
+
+          if (asset.type === 'asteroid') {
+            const texture = o[key];
+            // Randomize mapping so each asteroid looks unique
+            texture.offset = new Vector2(Math.random(), Math.random());
+            texture.wrapS = RepeatWrapping;
+            texture.wrapT = RepeatWrapping;
+            //texture.rotation = Math.random()*Math.pi;
+          }
         } else {
           o[key] = m[key];
         }
@@ -347,13 +355,15 @@ export async function addAsset(asset) {
         cascadingShadowMap.setupMaterial(material); // must be called to pass all CSM-related uniforms to the shader
       } else if (asset.type === 'projectile') {
         material = new MeshBasicMaterial(o);
+      } else if (asset.type === 'asteroid') {
+        material = new MeshPhongMaterial(o);
       }
     }
 
     // Object & Geometry
     if (asset.obj) {
       if (asset.obj === 'sphere') {
-        const widthSegments = asset.scale > 1000 ? 196 : 5;
+        const widthSegments = asset.scale > 1000 ? 196 : 12;
         const heightSegments = widthSegments;
         let geometry = new SphereBufferGeometry(asset.scale, widthSegments, heightSegments);
         object = new Mesh(geometry, material);
@@ -415,14 +425,14 @@ export function setControlledAsset(asset) {
 }
 
 let ignition = new Group();
-let ignitionLight = new PointLight( 0xff0044, 10, 300 );
+let ignitionLight = new PointLight( 0xff3322, 5, 500 );
 let ignitionTime;
 scene.add(ignition);
 export function ignite() {
-  const colors = [0x0000ff, 0xff1200];
+  const colors = [0xffff00, 0xff1200];
   const opacities = [0.8, 0.6];
   for (let i=0; i<2; i++) {
-    const geometry = new ConeGeometry( 13+i*2, 100+i*80, 12, 1, true );
+    const geometry = new ConeGeometry( 8+i*2, 120+i*80, 12, 1, true );
     const material = new MeshBasicMaterial({color: colors[i], transparent: true, opacity: opacities[i]});
     const cone = new Mesh(geometry, material);
     cone.setRotationFromEuler(new Euler(-Math.PI/2, 0, 0, 'XYZ'));
@@ -439,7 +449,6 @@ export function ignite() {
 }
 
 export function quench() {
-  console.log('quenching', ignition);
   while(ignition.children.length > 0) {
     const child = ignition.children[0];
     scene.remove(child);

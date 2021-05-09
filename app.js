@@ -488,7 +488,7 @@ function calculateAssetTick(asset) {
 }
 
 function calculateTimedEvents(tick) {
-  if (tick % 80 === 0) {
+  if (tick % 20 === 0) {
     app.service('assets').create({
       name: 'Asteroid',
       obj: 'sphere',
@@ -498,7 +498,7 @@ function calculateTimedEvents(tick) {
       k: 0,
       x: 0,
       y: 1000 + Math.random() * 9000,
-      z: 120000,
+      z: 20000,
       dx: 0,
       dy: 0,
       dz: -100 - Math.random() * 900,
@@ -508,9 +508,17 @@ function calculateTimedEvents(tick) {
         birth: new Date().getTime(),
         lifespan: 60 * 1000,
       },
-      type: 'projectile',
+      type: 'asteroid',
       material: {
-        color: 0xffffff,
+        color: 0x202020,
+        emissive: 0x111111,
+        displacementMap: randomAsteroidMap(),
+        displacementScale: 10 + Math.random()*240,
+        //normalMap: '/public/13302-normal.jpg',
+        //normalScale: 100,
+        bumpMap: randomAsteroidMap(),
+        bumpScale: 10 + Math.random()*240,
+        shininess: 0,
       }
     });
   }
@@ -547,4 +555,8 @@ function randomSpaceship() {
   }];
 
   return options[Math.floor(Math.random() * options.length)];
+}
+function randomAsteroidMap() {
+  const options = ['/public/13302-normal.jpg', '/public/3215-bump.jpg', '/public/12253.jpg', '/public/12098.jpg'];
+  return options[Math.floor(Math.random() * options.length)]
 }
