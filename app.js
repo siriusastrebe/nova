@@ -98,6 +98,7 @@ class AssetsService {
       obj: data.obj,
       material: data.material,
       bump: data.bump,
+      attached: data.attached,
       x: data.x !== undefined ? data.x : 0,
       y: data.y !== undefined ? data.y : 0,
       z: data.z !== undefined ? data.z : 0,
@@ -293,7 +294,7 @@ function assetActions(asset, input) {
           const v = new Three.Vector3(0, 0, 10000);
           v.applyQuaternion(orientation);
 
-          const positions = []
+          const positions = [];
           for (let i=0; i<weapon.positions.length; i++) {
             const p = weapon.positions[i];
             const w = new Three.Vector3(p[0], p[1], p[2]);
@@ -301,27 +302,26 @@ function assetActions(asset, input) {
           }
 
           if (asset.vitals.weaponCooldown === undefined || asset.vitals.weaponCooldown < new Date().getTime()) {
-            const props = {
-              obj: 'sphere',
-              w: asset.w,
-              i: asset.i,
-              j: asset.j,
-              k: asset.k,
-              dx: v.x + asset.dx,
-              dy: v.y + asset.dy,
-              dz: v.z + asset.dz,
-              t: new Date(),
-              vitals: {
-                birth: new Date().getTime(),
-                lifespan: 6000,
-              },
-              type: 'projectile',
-              material: {
-                color: 0xFF0000,
-              }
-            }
-
             if (asset.vitals.charge >= 100) {
+              const props = {
+                obj: 'sphere',
+                w: asset.w,
+                i: asset.i,
+                j: asset.j,
+                k: asset.k,
+                dx: v.x + asset.dx,
+                dy: v.y + asset.dy,
+                dz: v.z + asset.dz,
+                t: new Date(),
+                vitals: {
+                  birth: new Date().getTime(),
+                  lifespan: 6000,
+                },
+                type: 'projectile',
+                material: {
+                  color: 0xFF0000,
+                }
+              }
               props.name = 'Charge shot';
               props.scale = 120;
               props.x = asset.x + positions[0].x;
@@ -333,26 +333,53 @@ function assetActions(asset, input) {
 
               app.service('assets').create(props).then((a, b) => {
               });
-            } else {
-              props.name = 'Rapid shot';
-              props.scale = 20;
-              props.x = asset.x + positions[1].x;
-              props.y = asset.y + positions[1].y;
-              props.z = asset.z + positions[1].z;
+            } else if (asset.attached === undefined || asset.attached.length === 0) {
+              const l1 = {
+                obj: 'line',
+                name: 'laser',
+                attached: asset.id,
+                type: 'attached',
+                x: weapon.positions[1][0],
+                y: weapon.positions[1][1],
+                z: weapon.positions[1][2]
+              }
 
-              props2 = JSON.parse(JSON.stringify(props));
-              props2.x = asset.x + positions[2].x;
-              props2.y = asset.y + positions[2].y;
-              props2.z = asset.z + positions[2].z;
+              const l2 = {
+                obj: 'line',
+                name: 'laser',
+                attached: asset.id,
+                type: 'attached',
+                x: weapon.positions[2][0],
+                y: weapon.positions[2][1],
+                z: weapon.positions[2][2]
+              }
 
-              asset.vitals.charge -= 7;
+              asset.vitals.charge -= 4;
 
-              app.service('assets').create(props).then((a, b) => {
+              if (asset.attached === undefined) asset.attached = [];
+              app.service('assets').create(l1).then((a, b) => {
+                console.log(a);
+                asset.attached.push(a);
               });
-              app.service('assets').create(props2).then((a, b) => {
+              app.service('assets').create(l2).then((a, b) => {
+                console.log(a);
+                asset.attached.push(a);
               });
+
             }
           }
+        }
+      }
+    }
+  } else {
+    if (asset.attached && asset.attached.length > 0) {
+      for (let i=0; i<asset.attached.length; i++) {
+        const a = asset.attached[i];
+        // Shutting weapon off
+        if (a.name === 'laser') {
+          app.service('assets').remove(a.id);
+          asset.attached.splice(i, 1);
+          i--;
         }
       }
     }
@@ -541,7 +568,7 @@ function randomSpaceship() {
     texture: '/public/SpaceFighter02/F02_512.jpg',
     weapons: [{
       name: 'charger',
-      positions: [[0, 50, 250], [150, 40, 120], [-150, 40, 120]],
+      positions: [[0, 50, 250], [80, 0, 80], [-80, 0, 80]],
     }],
 //  }, {
 //    obj: '/public/SpaceFighter03/SpaceFighter03.obj',

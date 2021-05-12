@@ -264,8 +264,8 @@ function render() {
 
       for (let i=0; i<ignition.children.length; i++) {
         const child = ignition.children[i];
-        child.scale.x = child.scale.y = child.scale.z = ignitionAmount;
-        child.position.z = -i*40 -160 + (1-ignitionAmount)*(60+i*40); // Relative to the group
+        child.scale.x = child.scale.y = child.scale.z = ignitionAmount -0.03+Math.random()*0.06;
+        child.position.z = -i*40 -160 + (1-child.scale.x)*(60+i*40); // Relative to the group
       }
 
       if (ignitionLight) {
@@ -318,6 +318,7 @@ export async function addAsset(asset) {
   console.log('Adding asset', asset.name);
 
   assets[asset.id] = asset;
+
   if (asset[asset.id] === undefined) {
     let model;
     let bump;
@@ -363,10 +364,20 @@ export async function addAsset(asset) {
     // Object & Geometry
     if (asset.obj) {
       if (asset.obj === 'sphere') {
-        const widthSegments = asset.scale > 1000 ? 196 : 12;
+        const widthSegments = asset.scale > 1000 ? 196 : 6;
         const heightSegments = widthSegments;
         let geometry = new SphereBufferGeometry(asset.scale, widthSegments, heightSegments);
         object = new Mesh(geometry, material);
+      } else if (asset.obj === 'line' && asset.type === 'attached') {
+        const material = new LineBasicMaterial({ color: 0x0000ff });
+
+        const points = [];
+        points.push(new Vector3( asset.x, asset.y, asset.z));
+        points.push(new Vector3( asset.x, asset.y, asset.z + 20000));
+
+        const geometry = new BufferGeometry().setFromPoints(points);
+
+        object = new Line(geometry, material);
       } else {
         object = await ol(asset.obj);
 
@@ -383,7 +394,12 @@ export async function addAsset(asset) {
     object.castShadow = false;
 
     asset.object = object;
-    scene.add(object);
+
+    if (asset.type === 'attached') {
+      assets[asset.attached].object.add(object);
+    } else {
+      scene.add(object);
+    }
   } else {
     console.log('attempting to add asset that already exists.');
   }
@@ -409,6 +425,9 @@ export function removeAsset(id) {
   if (existing) {
     console.log('removed asset', id);
     scene.remove(existing.object);
+    if (existing.attached) {
+      assets[existing.attached].object.remove(existing.object);
+    }
     delete(assets[id]);
   } else {
     console.error('Unable to remove asset, no asset found with with the id ' + id);
