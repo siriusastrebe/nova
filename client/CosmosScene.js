@@ -260,7 +260,7 @@ function render() {
       ignition.position.z = position.z + -1+Math.random()*2;
       ignition.setRotationFromQuaternion(orientation);
 
-      const ignitionAmount = Math.min(((new Date() - ignitionTime) / 200), 1);
+      const ignitionAmount = Math.min(((new Date() - ignitionTime) / 100), 1);
 
       for (let i=0; i<ignition.children.length; i++) {
         const child = ignition.children[i];

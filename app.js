@@ -9,7 +9,7 @@ const configuration   = require('@feathersjs/configuration');
 const feathersKnex    = require('feathers-knex');
 const authService     = require('./feathers/auth');
 const accountsService = require('./feathers/services/accounts/accounts.service.js');
-const Three           = require('three'); 
+const Three           = require('three');
 const sol             = require('./solar-systems/sol.js');
 const knex            = require('knex')({
   client: 'pg',
@@ -84,6 +84,7 @@ class UserInputsService {
 class AssetsService {
   constructor() {
     this.assets = {};
+    this.interactiveAssets = [];
     this.assetsBySocket = {};
     this.idcounter = 0;
     this.events = ['networktick', 'roundtrip'];
@@ -118,6 +119,8 @@ class AssetsService {
       ddi: data.ddi !== undefined ? data.ddi : 0,
       ddj: data.ddj !== undefined ? data.ddj : 0,
       ddk: data.ddk !== undefined ? data.ddk : 0,
+      radius: data.radius,
+      interactive: data.interactive,
       vitals: data.vitals,
       weapons: data.weapons,
       scale: data.scale,
@@ -127,6 +130,9 @@ class AssetsService {
     }
 
     this.assets[id] = asset;
+    if (data.interactive) {
+      this.interactiveAssets.push(asset);
+    }
     this.idcounter = this.idcounter + 1;
     if (data.socketId) {
       this.assetsBySocket[data.socketId] = asset;
@@ -147,6 +153,10 @@ class AssetsService {
         delete this.assetsBySocket[asset.socketId]
       }
       delete this.assets[id];
+
+      if (asset.interactive) {
+        this.interactiveAssets.splice(this.interactiveAssets.indexOf(asset), 1);
+      }
     }
     return id;
   }
@@ -199,6 +209,7 @@ app.on('connection', (connection, b) => {
     },
     weapons: ship.weapons,
     obj: ship.obj,
+    radius: ship.radius,
     x: 0,
     y: 1200,
     z: 0,
@@ -218,6 +229,7 @@ app.on('connection', (connection, b) => {
     ddi: 0,
     ddj: 0,
     ddk: 0,
+    interactive: true,
     vitals: {charge: 100},
     type: 'player',
     subtype: 'ship',
@@ -248,6 +260,8 @@ const gameLoop = async () => {
 
   const assets = await app.service('assets').find();
   const userInputs = await app.service('userInputs').find();
+
+  const collisions = calculateCollisions();
 
   if (assets.length > 0) {
     const allChanges = assets.map((asset) => {
@@ -291,8 +305,6 @@ function assetActions(asset, input) {
         if (asset.vitals.charge >  12) {
 
           const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
-          const v = new Three.Vector3(0, 0, 10000);
-          v.applyQuaternion(orientation);
 
           const positions = [];
           for (let i=0; i<weapon.positions.length; i++) {
@@ -303,6 +315,9 @@ function assetActions(asset, input) {
 
           if (asset.vitals.weaponCooldown === undefined || asset.vitals.weaponCooldown < new Date().getTime()) {
             if (asset.vitals.charge >= 100) {
+              const v = new Three.Vector3(0, 0, 10000);
+              v.applyQuaternion(orientation);
+
               const props = {
                 obj: 'sphere',
                 w: asset.w,
@@ -312,6 +327,8 @@ function assetActions(asset, input) {
                 dx: v.x + asset.dx,
                 dy: v.y + asset.dy,
                 dz: v.z + asset.dz,
+                interactive: true,
+                radius: 120,
                 t: new Date(),
                 vitals: {
                   birth: new Date().getTime(),
@@ -358,14 +375,14 @@ function assetActions(asset, input) {
 
               if (asset.attached === undefined) asset.attached = [];
               app.service('assets').create(l1).then((a, b) => {
-                console.log(a);
                 asset.attached.push(a);
               });
               app.service('assets').create(l2).then((a, b) => {
-                console.log(a);
                 asset.attached.push(a);
               });
-
+            } else {
+              // Drain laser energy
+              asset.vitals.charge -= 4;
             }
           }
         }
@@ -402,6 +419,63 @@ function calculateAssetVitals(asset) {
     }
   }
   return asset.vitals;
+}
+
+function calculateCollisions() {
+  const interactiveAssets = app.service('assets').interactiveAssets;
+
+  interactiveAssets.sort((a, b) => a.z - b.z);
+
+  for (let i=0; i<interactiveAssets.length; i++) {
+    const asset = interactiveAssets[i];
+
+    // Instead of using an octree which I can't find for js, we're just sorting by Z value to group 
+    // items that might need to be collion detection paired. It's a primitve solution.
+    const buffer = asset.radius + 10;
+    const dt = (new Date() - asset.t) / 100;
+
+    let start = new Three.Vector3(asset.x, asset.y, asset.z);
+    let end = new Three.Vector3(asset.x + asset.dx * dt + 0.5 * asset.ddx * dt * dt,
+                                asset.y + asset.dy * dt + 0.5 * asset.ddy * dt * dt,
+                                asset.z + asset.dz * dt + 0.5 * asset.ddz * dt * dt);
+
+    let lowX = Math.min(start.x, end.x) - buffer;
+    let lowY = Math.min(start.y, end.y) - buffer;
+    let lowZ = Math.min(start.z, end.z) - buffer;
+    let highX = Math.max(start.x, end.x) + buffer;
+    let highY = Math.max(start.y, end.y) + buffer;
+    let highZ = Math.max(start.z, end.z) + buffer;
+
+    let leftIndex = -1;
+    let rightIndex = 1;
+
+    const compareThese = [];
+
+    while (i+leftIndex >= 0 && interactiveAssets[i+leftIndex].z > lowZ) {
+      const a = interactiveAssets[i+leftIndex];
+      if (a.x + a.radius > lowX && a.x - a.radius < highX && a.y + a.radius > lowY && a.y - a.radius < highY) {
+        compareThese.push(interactiveAssets[i+leftIndex]);
+      }
+      leftIndex--;
+    }
+
+    while (i+rightIndex < interactiveAssets.length && interactiveAssets[i+rightIndex].z < highZ) {
+      const a = interactiveAssets[i+rightIndex];
+      if (a.x + a.radius > lowX && a.x - a.radius < highX && a.y + a.radius > lowY && a.y - a.radius < highY) {
+        compareThese.push(interactiveAssets[i+rightIndex]);
+      }
+      rightIndex++;
+    }
+
+    if (compareThese.length > 0) {
+      if (asset.name === 'Panther' || asset.name === 'Charge shot') {
+        //console.log('collision with ' + asset.namep );//, asset.x+','+asset.y+','+asset.z + '   ' + end.x+','+end.y+','+end.z);//, '\n', a.name + ' ' + a.x + ',' + a.y + ',' + a.z, '\n');
+        console.log('collision with ' + asset.name, compareThese.map((a) => a.name + a.id));
+      }
+    }
+  }
+
+  return [];
 }
 
 
@@ -528,9 +602,11 @@ function calculateTimedEvents(tick) {
       z: 20000,
       dx: 0,
       dy: 0,
-      dz: -100 - Math.random() * 900,
+      dz: -100 - Math.random() * 2000,
       scale: 1000,
+      radius: 1000,
       t: new Date(),
+      interactive: true,
       vitals: {
         birth: new Date().getTime(),
         lifespan: 60 * 1000,
@@ -566,6 +642,7 @@ function randomSpaceship() {
 //  }, {
     obj: '/public/SpaceFighter02/SpaceFighter02.obj',
     texture: '/public/SpaceFighter02/F02_512.jpg',
+    radius: 100,
     weapons: [{
       name: 'charger',
       positions: [[0, 50, 250], [80, 0, 80], [-80, 0, 80]],
