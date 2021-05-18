@@ -9,8 +9,14 @@ const configuration   = require('@feathersjs/configuration');
 const feathersKnex    = require('feathers-knex');
 const authService     = require('./feathers/auth');
 const accountsService = require('./feathers/services/accounts/accounts.service.js');
-const Three           = require('three');
 const sol             = require('./solar-systems/sol.js');
+
+THREE           = require('three'); 
+require('three/examples/js/loaders/OBJLoader');// Requires THREE to be a global variable
+const objLoader = new THREE.OBJLoader();
+const ol              = promisify(objLoader.load, objLoader);
+//const OBJLoader       = require('three/examples/jsm/loaders/OBJLoader.js');
+
 const knex            = require('knex')({
   client: 'pg',
   connection: {
@@ -136,6 +142,20 @@ class AssetsService {
     this.idcounter = this.idcounter + 1;
     if (data.socketId) {
       this.assetsBySocket[data.socketId] = asset;
+    }
+
+    if (asset.obj) {
+      let object;
+      if (asset.obj === 'sphere') {
+        const widthSegments = asset.scale > 1000 ? 196 : 6;
+        const heightSegments = widthSegments;
+        let geometry = new SphereBufferGeometry(asset.scale, widthSegments, heightSegments);
+        object = new Mesh(geometry);
+      } else if (asset.obj !== 'line') {
+        object = await ol(asset.obj);
+      }
+
+      asset.object = object;
     }
 
     return asset;
@@ -309,13 +329,13 @@ function assetActions(asset, input) {
           const positions = [];
           for (let i=0; i<weapon.positions.length; i++) {
             const p = weapon.positions[i];
-            const w = new Three.Vector3(p[0], p[1], p[2]);
+            const w = new THREE.Vector3(p[0], p[1], p[2]);
             positions[i] = w.applyQuaternion(orientation);
           }
 
           if (asset.vitals.weaponCooldown === undefined || asset.vitals.weaponCooldown < new Date().getTime()) {
             if (asset.vitals.charge >= 100) {
-              const v = new Three.Vector3(0, 0, 10000);
+              const v = new THREE.Vector3(0, 0, 10000);
               v.applyQuaternion(orientation);
 
               const props = {
@@ -430,12 +450,12 @@ function calculateCollisions() {
     const asset = interactiveAssets[i];
 
     // Instead of using an octree which I can't find for js, we're just sorting by Z value to group 
-    // items that might need to be collion detection paired. It's a primitve solution.
+    // items that might need to be collion detection paired. It's a primitive solution.
     const buffer = asset.radius + 10;
     const dt = (new Date() - asset.t) / 100;
 
-    let start = new Three.Vector3(asset.x, asset.y, asset.z);
-    let end = new Three.Vector3(asset.x + asset.dx * dt + 0.5 * asset.ddx * dt * dt,
+    let start = new THREE.Vector3(asset.x, asset.y, asset.z);
+    let end = new THREE.Vector3(asset.x + asset.dx * dt + 0.5 * asset.ddx * dt * dt,
                                 asset.y + asset.dy * dt + 0.5 * asset.ddy * dt * dt,
                                 asset.z + asset.dz * dt + 0.5 * asset.ddz * dt * dt);
 
@@ -476,6 +496,24 @@ function calculateCollisions() {
   }
 
   return [];
+
+  // Raycasts
+  for (let i=0; i<interactiveAssets.length; i++) {
+    // Detect laser collision and damage
+    if (asset.attached && asset.attached.length > 0) {
+      for (let i=0; i<asset.attached.length; i++) {
+        const a = asset.attached[i];
+        if (a.name === 'laser') {
+          const intersects = raycaster.intersectObjects(interactiveAssets.map(a => a.object));
+
+          for (let j=0; j<intersects.length; j++) {
+            const intersection = intersects[j];
+            console.log('Raycast intersection with ', intersection);
+          }
+        }
+      }
+    }
+  }
 }
 
 
@@ -486,15 +524,15 @@ function calculateAssetForces(asset, userInput) {
   const engineSpeed = 5000;
 
   // Position/Velocity/Acceleration
-  const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
-  let force = new Three.Vector3(0, 0, 0);
-  force = new Three.Vector3(0, 0, userInput.space ? 1 : 0);
+  const orientation = new THREE.Quaternion(asset.i, asset.j, asset.k, asset.w);
+  let force = new THREE.Vector3(0, 0, 0);
+  force = new THREE.Vector3(0, 0, userInput.space ? 1 : 0);
   force.applyQuaternion(orientation);
 
   // Automatic space drag (lol not a real thing)
-  const velocity = new Three.Vector3(asset.dx, asset.dy, asset.dz);
+  const velocity = new THREE.Vector3(asset.dx, asset.dy, asset.dz);
   const magnitude = velocity.length();
-  const drag = new Three.Vector3().copy(velocity).negate();
+  const drag = new THREE.Vector3().copy(velocity).negate();
   drag.multiplyScalar(dragRatio);
   force.add(drag);
 
@@ -504,7 +542,7 @@ function calculateAssetForces(asset, userInput) {
   const yInput = (userInput.left - userInput.right) * torqueRadians;
   const zInput = (userInput.clockwise - userInput.counterclockwise) * torqueRadians;
 
-  const eulerTorque = new Three.Euler(xInput, yInput, zInput, 'XYZ');
+  const eulerTorque = new THREE.Euler(xInput, yInput, zInput, 'XYZ');
 
   // Automatic Rotational drag
   eulerTorque.x = eulerTorque.x - asset.di * angularDrag;
@@ -541,8 +579,8 @@ function calculateAssetTick(asset) {
   asset.dy = asset.dy + asset.ddy * dt;
   asset.dz = asset.dz + asset.ddz * dt;
 
-  // const torque = new Three.Quaternion(asset.ddi, asset.ddj, asset.ddk, asset.ddw);
-  const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
+  // const torque = new THREE.Quaternion(asset.ddi, asset.ddj, asset.ddk, asset.ddw);
+  const orientation = new THREE.Quaternion(asset.i, asset.j, asset.k, asset.w);
   const di = asset.di*dt + asset.ddi*dt*dt/2;
   const dj = asset.dj*dt + asset.ddj*dt*dt/2;
   const dk = asset.dk*dt + asset.ddk*dt*dt/2;
@@ -551,8 +589,8 @@ function calculateAssetTick(asset) {
   const ej = dj;
   const ek = dk;
 
-  const dorientation = new Three.Euler(ei, ej, ek, 'XYZ');
-  orientation.multiply(new Three.Quaternion().setFromEuler(dorientation));
+  const dorientation = new THREE.Euler(ei, ej, ek, 'XYZ');
+  orientation.multiply(new THREE.Quaternion().setFromEuler(dorientation));
   orientation.normalize();
 
   asset.w = orientation._w;
@@ -565,6 +603,14 @@ function calculateAssetTick(asset) {
   asset.dk = asset.dk + asset.ddk * dt;
 
   asset.t = new Date().getTime();
+
+  if (asset.object) {
+    asset.object.position.x = asset.x;
+    asset.object.position.y = asset.y;
+    asset.object.position.z = asset.z;
+    const newOrientation = new THREE.Quaternion(asset.i, asset.j, asset.k, asset.w);
+    asset.object.setRotationFromQuaternion(newOrientation);
+  }
 
   return {
     x: asset.x,
@@ -663,4 +709,17 @@ function randomSpaceship() {
 function randomAsteroidMap() {
   const options = ['/public/13302-normal.jpg', '/public/3215-bump.jpg', '/public/12253.jpg', '/public/12098.jpg'];
   return options[Math.floor(Math.random() * options.length)]
+}
+function promisify(f, that) {
+  return function (...args) {
+    return new Promise((resolve, reject) => {
+      f.call(that, ...args, (args2, e) => {
+        if (e) {
+          reject(e);
+        } else {
+          resolve(args2);
+        }
+      });
+    });
+  }
 }
