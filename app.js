@@ -11,11 +11,12 @@ const authService     = require('./feathers/auth');
 const accountsService = require('./feathers/services/accounts/accounts.service.js');
 const sol             = require('./solar-systems/sol.js');
 
-THREE           = require('three'); 
-require('three/examples/js/loaders/OBJLoader');// Requires THREE to be a global variable
-const objLoader = new THREE.OBJLoader();
-const ol              = promisify(objLoader.load, objLoader);
-//const OBJLoader       = require('three/examples/jsm/loaders/OBJLoader.js');
+THREE                 = require('three'); 
+require('three/examples/js/loaders/OBJLoader'); // Requires THREE to be a global variable
+
+const objLoader       = new THREE.OBJLoader();
+const fl              = promisify(fs.readFile, fs, true);
+const scene           = new THREE.Scene();
 
 const knex            = require('knex')({
   client: 'pg',
@@ -93,6 +94,7 @@ class AssetsService {
     this.interactiveAssets = [];
     this.assetsBySocket = {};
     this.idcounter = 0;
+    this.objects = {};
     this.events = ['networktick', 'roundtrip'];
   }
   async create(data, params) {
@@ -135,6 +137,10 @@ class AssetsService {
       socketId: data.socketId
     }
 
+    if (asset.obj && asset.interactive) {
+      await this.createObject(asset);
+    }
+
     this.assets[id] = asset;
     if (data.interactive) {
       this.interactiveAssets.push(asset);
@@ -142,20 +148,6 @@ class AssetsService {
     this.idcounter = this.idcounter + 1;
     if (data.socketId) {
       this.assetsBySocket[data.socketId] = asset;
-    }
-
-    if (asset.obj) {
-      let object;
-      if (asset.obj === 'sphere') {
-        const widthSegments = asset.scale > 1000 ? 196 : 6;
-        const heightSegments = widthSegments;
-        let geometry = new SphereBufferGeometry(asset.scale, widthSegments, heightSegments);
-        object = new Mesh(geometry);
-      } else if (asset.obj !== 'line') {
-        object = await ol(asset.obj);
-      }
-
-      asset.object = object;
     }
 
     return asset;
@@ -195,6 +187,32 @@ class AssetsService {
   }
   async getBySocket(socketId, params) {
     return this.assetsBySocket[socketId];
+  }
+  async createObject(asset) {
+    if (asset.obj && asset.interactive) {
+      if (this.objects[asset.obj] === undefined) {
+        // In memory representation
+        let object;
+        if (asset.obj === 'sphere') {
+          const widthSegments = asset.scale > 1000 ? 196 : 6;
+          const heightSegments = widthSegments;
+          let geometry = new THREE.SphereBufferGeometry(asset.scale, widthSegments, heightSegments);
+          object = new THREE.Mesh(geometry);
+        } else if (asset.obj !== 'line') {
+          const file = await fl(__dirname + '/' + asset.obj, 'utf8');
+          object = objLoader.parse(file)
+        }
+
+        scene.add(object);
+
+        this.objects[asset.obj] = object;
+      }
+      return this.objects[asset.obj];
+    }
+    return undefined;
+  }
+  getObject(asset) {
+    return this.objects[asset.obj];
   }
 }
 app.use('/assets', new AssetsService());
@@ -324,7 +342,7 @@ function assetActions(asset, input) {
       if (weapon.name === 'charger') {
         if (asset.vitals.charge >  12) {
 
-          const orientation = new Three.Quaternion(asset.i, asset.j, asset.k, asset.w);
+          const orientation = new THREE.Quaternion(asset.i, asset.j, asset.k, asset.w);
 
           const positions = [];
           for (let i=0; i<weapon.positions.length; i++) {
@@ -495,25 +513,32 @@ function calculateCollisions() {
     }
   }
 
-  return [];
-
   // Raycasts
+  const objects = interactiveAssets.map(a => app.service('assets').getObject(a));
+
   for (let i=0; i<interactiveAssets.length; i++) {
     // Detect laser collision and damage
-    if (asset.attached && asset.attached.length > 0) {
-      for (let i=0; i<asset.attached.length; i++) {
-        const a = asset.attached[i];
-        if (a.name === 'laser') {
-          const intersects = raycaster.intersectObjects(interactiveAssets.map(a => a.object));
+    const asset = interactiveAssets[i];
 
-          for (let j=0; j<intersects.length; j++) {
-            const intersection = intersects[j];
-            console.log('Raycast intersection with ', intersection);
+    if (asset.attached && asset.attached.length > 0) {
+      for (let j=0; j<asset.attached.length; j++) {
+        const a = asset.attached[j];
+        if (a.name === 'laser') {
+          const origin = new THREE.Vector3(asset.x, asset.y, asset.z);
+          const orientation = new THREE.Quaternion(asset.i, asset.j, asset.k, asset.w);
+          const direction = new THREE.Vector3(0, 0, 1).applyQuaternion(orientation);
+          const intersects = new THREE.Raycaster(origin, direction).intersectObjects(objects);
+
+          for (let k=0; k<intersects.length; k++) {
+            const intersection = intersects[k];
+            console.log('Raycast intersection ', intersection.distance);
           }
         }
       }
     }
   }
+
+  return [];
 }
 
 
@@ -604,12 +629,13 @@ function calculateAssetTick(asset) {
 
   asset.t = new Date().getTime();
 
-  if (asset.object) {
-    asset.object.position.x = asset.x;
-    asset.object.position.y = asset.y;
-    asset.object.position.z = asset.z;
+  if (asset.obj && asset.interactive) {
+    const object = app.service('assets').getObject(asset);
+    object.position.x = asset.x;
+    object.position.y = asset.y;
+    object.position.z = asset.z;
     const newOrientation = new THREE.Quaternion(asset.i, asset.j, asset.k, asset.w);
-    asset.object.setRotationFromQuaternion(newOrientation);
+    object.setRotationFromQuaternion(newOrientation);
   }
 
   return {
@@ -710,14 +736,22 @@ function randomAsteroidMap() {
   const options = ['/public/13302-normal.jpg', '/public/3215-bump.jpg', '/public/12253.jpg', '/public/12098.jpg'];
   return options[Math.floor(Math.random() * options.length)]
 }
-function promisify(f, that) {
+function promisify(f, that, errorFirst) {
   return function (...args) {
     return new Promise((resolve, reject) => {
-      f.call(that, ...args, (args2, e) => {
-        if (e) {
-          reject(e);
+      f.call(that, ...args, (a, b) => {
+        if (errorFirst) {
+          if (a) {
+            reject(a)
+          } else {
+            resolve(b);
+          }
         } else {
-          resolve(args2);
+          if (b) {
+            reject(b);
+          } else {
+            resolve(a);
+          }
         }
       });
     });
