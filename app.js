@@ -16,7 +16,6 @@ require('three/examples/js/loaders/OBJLoader'); // Requires THREE to be a global
 
 const objLoader       = new THREE.OBJLoader();
 const fl              = promisify(fs.readFile, fs, true);
-const scene           = new THREE.Scene();
 
 const knex            = require('knex')({
   client: 'pg',
@@ -95,6 +94,7 @@ class AssetsService {
     this.assetsBySocket = {};
     this.idcounter = 0;
     this.objects = {};
+    this.files = {};
     this.events = ['networktick', 'roundtrip'];
   }
   async create(data, params) {
@@ -190,29 +190,30 @@ class AssetsService {
   }
   async createObject(asset) {
     if (asset.obj && asset.interactive) {
-      if (this.objects[asset.obj] === undefined) {
-        // In memory representation
-        let object;
-        if (asset.obj === 'sphere') {
-          const widthSegments = asset.scale > 1000 ? 196 : 6;
-          const heightSegments = widthSegments;
-          let geometry = new THREE.SphereBufferGeometry(asset.scale, widthSegments, heightSegments);
-          object = new THREE.Mesh(geometry);
-        } else if (asset.obj !== 'line') {
+      // In memory representation
+      let object;
+      if (asset.obj === 'sphere') {
+        const widthSegments = asset.scale > 1000 ? 196 : 6;
+        const heightSegments = widthSegments;
+        let geometry = new THREE.SphereBufferGeometry(asset.scale, widthSegments, heightSegments);
+        object = new THREE.Mesh(geometry);
+      } else if (asset.obj !== 'line') {
+        if (this.files[asset.obj] === undefined) {
           const file = await fl(__dirname + '/' + asset.obj, 'utf8');
           object = objLoader.parse(file)
+          this.files[asset.obj] = object;
+        } else {
+          object = this.files[asset.obj];
         }
-
-        scene.add(object);
-
-        this.objects[asset.obj] = object;
       }
-      return this.objects[asset.obj];
+
+      this.objects[asset.id] = object;
+      return this.objects[asset.id];
     }
     return undefined;
   }
   getObject(asset) {
-    return this.objects[asset.obj];
+    return this.objects[asset.id];
   }
 }
 app.use('/assets', new AssetsService());
@@ -527,11 +528,12 @@ function calculateCollisions() {
           const origin = new THREE.Vector3(asset.x, asset.y, asset.z);
           const orientation = new THREE.Quaternion(asset.i, asset.j, asset.k, asset.w);
           const direction = new THREE.Vector3(0, 0, 1).applyQuaternion(orientation);
-          const intersects = new THREE.Raycaster(origin, direction).intersectObjects(objects);
+          const raycast = new THREE.Raycaster(origin, direction);
+          const intersects = raycast.intersectObjects(objects);
 
           for (let k=0; k<intersects.length; k++) {
             const intersection = intersects[k];
-            console.log('Raycast intersection ', intersection.distance);
+            console.log('Raycast intersection ', intersection);
           }
         }
       }
