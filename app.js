@@ -525,15 +525,27 @@ function calculateCollisions() {
       for (let j=0; j<asset.attached.length; j++) {
         const a = asset.attached[j];
         if (a.name === 'laser') {
-          const origin = new THREE.Vector3(asset.x, asset.y, asset.z);
+
           const orientation = new THREE.Quaternion(asset.i, asset.j, asset.k, asset.w);
           const direction = new THREE.Vector3(0, 0, 1).applyQuaternion(orientation);
-          const raycast = new THREE.Raycaster(origin, direction);
-          const intersects = raycast.intersectObjects(objects);
 
-          for (let k=0; k<intersects.length; k++) {
-            const intersection = intersects[k];
-            console.log('Raycast intersection ', intersection);
+          for (let k=0; k<objects.length; k++) {
+            const object = objects[k];
+            const position = object.position;
+
+            // For some reason, raycasts behave as if the object is centered at origin
+            const origin = new THREE.Vector3(asset.x - position.x, asset.y - position.y, asset.z - position.z);
+            const raycast = new THREE.Raycaster(origin, direction);
+            const intersect = raycast.intersectObject(object);
+
+            if (intersect.length > 0) {
+              console.log(intersect);
+            }
+             
+            //for (let k=0; k<intersects.length; k++) {
+            //  const intersection = intersects[k];
+            //  console.log('Raycast intersection ', intersection.object.geometry.attributes.position);
+            //}
           }
         }
       }
@@ -633,9 +645,7 @@ function calculateAssetTick(asset) {
 
   if (asset.obj && asset.interactive) {
     const object = app.service('assets').getObject(asset);
-    object.position.x = asset.x;
-    object.position.y = asset.y;
-    object.position.z = asset.z;
+    object.position.set(asset.x, asset.y, asset.z);
     const newOrientation = new THREE.Quaternion(asset.i, asset.j, asset.k, asset.w);
     object.setRotationFromQuaternion(newOrientation);
   }
