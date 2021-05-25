@@ -220,6 +220,13 @@ function render() {
     orientation.multiply(new Quaternion().setFromEuler(dorientation));
     orientation.normalize();
 
+    if (asset.object && asset.vitals && asset.vitals.health !== undefined) {
+      const lerpAmount = Math.min(1 - Math.max((asset.vitals.health / asset.vitals.maxHealth), 0), 1)
+      const healthyColor = new Color(asset.material.color);
+      const damagedColor = new Color(0xFF0000);
+      asset.object.material.color.lerpColors(healthyColor, damagedColor, lerpAmount);
+    }
+
     if (asset.object) {
       asset.object.position.x = x;
       asset.object.position.y = y;

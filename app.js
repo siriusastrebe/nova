@@ -207,7 +207,9 @@ class AssetsService {
         }
       }
 
+      object.asset = asset;
       this.objects[asset.id] = object;
+
       return this.objects[asset.id];
     }
     return undefined;
@@ -517,6 +519,7 @@ function calculateCollisions() {
   // Raycasts
   const objects = interactiveAssets.map(a => app.service('assets').getObject(a));
 
+  const attachments = [];
   for (let i=0; i<interactiveAssets.length; i++) {
     // Detect laser collision and damage
     const asset = interactiveAssets[i];
@@ -528,6 +531,7 @@ function calculateCollisions() {
 
           const orientation = new THREE.Quaternion(asset.i, asset.j, asset.k, asset.w);
           const direction = new THREE.Vector3(0, 0, 1).applyQuaternion(orientation);
+          const intersections = [];
 
           for (let k=0; k<objects.length; k++) {
             const object = objects[k];
@@ -539,13 +543,27 @@ function calculateCollisions() {
             const intersect = raycast.intersectObject(object);
 
             if (intersect.length > 0) {
-              console.log(intersect);
+              for (let l=0; l<intersect.length; l++) {
+                intersections.push(intersect[l]);
+              }
             }
-             
-            //for (let k=0; k<intersects.length; k++) {
-            //  const intersection = intersects[k];
-            //  console.log('Raycast intersection ', intersection.object.geometry.attributes.position);
-            //}
+          }
+
+          // Find closest
+          let closest;
+          let closeness = Infinity;
+          intersections.forEach((i) => {
+            if (i.distance < closeness) {
+              closeness = i.distance;
+              closest = i;
+            }
+          });
+
+          if (closest) {
+            const targetAsset = closest.object.asset;
+            if (targetAsset.vitals && targetAsset.vitals.health !== undefined) {
+              targetAsset.vitals.health = targetAsset.vitals.health - 10;
+            }
           }
         }
       }
@@ -694,6 +712,8 @@ function calculateTimedEvents(tick) {
       vitals: {
         birth: new Date().getTime(),
         lifespan: 60 * 1000,
+        health: 100,
+        maxHealth: 100
       },
       type: 'asteroid',
       material: {
@@ -701,8 +721,6 @@ function calculateTimedEvents(tick) {
         emissive: 0x111111,
         displacementMap: randomAsteroidMap(),
         displacementScale: 10 + Math.random()*240,
-        //normalMap: '/public/13302-normal.jpg',
-        //normalScale: 100,
         bumpMap: randomAsteroidMap(),
         bumpScale: 10 + Math.random()*240,
         shininess: 0,
