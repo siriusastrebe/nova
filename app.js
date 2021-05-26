@@ -360,7 +360,12 @@ function assetActions(asset, input) {
               v.applyQuaternion(orientation);
 
               const props = {
+                name: 'Charge shot',
                 obj: 'sphere',
+                scale: 120,
+                x: asset.x + positions[0].x,
+                y: asset.y + positions[0].y,
+                z: asset.z + positions[0].z,
                 w: asset.w,
                 i: asset.i,
                 j: asset.j,
@@ -374,17 +379,13 @@ function assetActions(asset, input) {
                 vitals: {
                   birth: new Date().getTime(),
                   lifespan: 6000,
+                  
                 },
                 type: 'projectile',
                 material: {
                   color: 0xFF0000,
                 }
               }
-              props.name = 'Charge shot';
-              props.scale = 120;
-              props.x = asset.x + positions[0].x;
-              props.y = asset.y + positions[0].y;
-              props.z = asset.z + positions[0].z;
 
               asset.vitals.charge -= 40;
               asset.vitals.weaponCooldown = new Date().getTime() + 300;
@@ -465,56 +466,73 @@ function calculateAssetVitals(asset) {
 function calculateCollisions() {
   const interactiveAssets = app.service('assets').interactiveAssets;
 
+  let totalPairsChecked = 0;
+
+  // Instead of using an octree which I can't find for js, we're just sorting by Z value to group 
+  // items that might need to be collion detection paired. It's a primitive solution.
   interactiveAssets.sort((a, b) => a.z - b.z);
+  let largestBuffer = 0;
 
   for (let i=0; i<interactiveAssets.length; i++) {
     const asset = interactiveAssets[i];
 
-    // Instead of using an octree which I can't find for js, we're just sorting by Z value to group 
-    // items that might need to be collion detection paired. It's a primitive solution.
-    const buffer = asset.radius + 10;
-    const dt = (new Date() - asset.t) / 100;
+    const buffer = asset.radius;
+    const dt = (new Date() - asset.t) / 1000;
 
     let start = new THREE.Vector3(asset.x, asset.y, asset.z);
     let end = new THREE.Vector3(asset.x + asset.dx * dt + 0.5 * asset.ddx * dt * dt,
                                 asset.y + asset.dy * dt + 0.5 * asset.ddy * dt * dt,
                                 asset.z + asset.dz * dt + 0.5 * asset.ddz * dt * dt);
 
-    let lowX = Math.min(start.x, end.x) - buffer;
-    let lowY = Math.min(start.y, end.y) - buffer;
-    let lowZ = Math.min(start.z, end.z) - buffer;
-    let highX = Math.max(start.x, end.x) + buffer;
-    let highY = Math.max(start.y, end.y) + buffer;
-    let highZ = Math.max(start.z, end.z) + buffer;
+    asset.lowX = Math.min(start.x, end.x) - buffer;
+    asset.lowY = Math.min(start.y, end.y) - buffer;
+    asset.lowZ = Math.min(start.z, end.z) - buffer;
+    asset.highX = Math.max(start.x, end.x) + buffer;
+    asset.highY = Math.max(start.y, end.y) + buffer;
+    asset.highZ = Math.max(start.z, end.z) + buffer;
+
+    if (buffer > largestBuffer) {
+      largestBuffer = buffer;
+    }
+  }
+
+  for (let i=0; i<interactiveAssets.length; i++) {
+    const a = interactiveAssets[i];
 
     let leftIndex = -1;
     let rightIndex = 1;
 
     const compareThese = [];
 
-    while (i+leftIndex >= 0 && interactiveAssets[i+leftIndex].z > lowZ) {
-      const a = interactiveAssets[i+leftIndex];
-      if (a.x + a.radius > lowX && a.x - a.radius < highX && a.y + a.radius > lowY && a.y - a.radius < highY) {
+    while (i+leftIndex >= 0 && interactiveAssets[i+leftIndex].x > a.lowZ - largestBuffer) {
+      const b = interactiveAssets[i+leftIndex];
+      totalPairsChecked++;
+      if (a.highX > b.lowX && a.lowX < b.highX && 
+          a.highY > b.lowY && a.lowY < b.highY && 
+          a.highZ > b.lowZ && a.lowZ < b.highZ) {
         compareThese.push(interactiveAssets[i+leftIndex]);
       }
       leftIndex--;
     }
 
-    while (i+rightIndex < interactiveAssets.length && interactiveAssets[i+rightIndex].z < highZ) {
-      const a = interactiveAssets[i+rightIndex];
-      if (a.x + a.radius > lowX && a.x - a.radius < highX && a.y + a.radius > lowY && a.y - a.radius < highY) {
+    while (i+rightIndex < interactiveAssets.length && interactiveAssets[i+rightIndex].z < a.highZ + largestBuffer) {
+      const b = interactiveAssets[i+rightIndex];
+      totalPairsChecked++;
+      if (a.highX > b.lowX && a.lowX < b.highX && 
+          a.highY > b.lowY && a.lowY < b.highY && 
+          a.highZ > b.lowZ && a.lowZ < b.highZ) {
         compareThese.push(interactiveAssets[i+rightIndex]);
       }
       rightIndex++;
     }
 
     if (compareThese.length > 0) {
-      if (asset.name === 'Panther' || asset.name === 'Charge shot') {
-        //console.log('collision with ' + asset.namep );//, asset.x+','+asset.y+','+asset.z + '   ' + end.x+','+end.y+','+end.z);//, '\n', a.name + ' ' + a.x + ',' + a.y + ',' + a.z, '\n');
-        console.log('collision with ' + asset.name, compareThese.map((a) => a.name + a.id));
+      if (a.name === 'Panther' || a.name === 'Charge shot') {
+        console.log('collision with ' + a.name, compareThese.map((a) => a.name + a.id));
       }
     }
   }
+  console.log('check', totalPairsChecked);
 
   // Raycasts
   const objects = interactiveAssets.map(a => app.service('assets').getObject(a));
@@ -712,8 +730,8 @@ function calculateTimedEvents(tick) {
       vitals: {
         birth: new Date().getTime(),
         lifespan: 60 * 1000,
-        health: 100,
-        maxHealth: 100
+        health: 400,
+        maxHealth: 400
       },
       type: 'asteroid',
       material: {
@@ -744,7 +762,7 @@ function randomSpaceship() {
 //  }, {
     obj: '/public/SpaceFighter02/SpaceFighter02.obj',
     texture: '/public/SpaceFighter02/F02_512.jpg',
-    radius: 100,
+    radius: 120,
     weapons: [{
       name: 'charger',
       positions: [[0, 50, 250], [80, 0, 80], [-80, 0, 80]],
