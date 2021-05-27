@@ -99,6 +99,7 @@ class AssetsService {
   }
   async create(data, params) {
     const id = this.idcounter;
+    this.idcounter = this.idcounter + 1;
 
     const asset = {
       id: id,
@@ -146,7 +147,6 @@ class AssetsService {
     if (data.interactive) {
       this.interactiveAssets.push(asset);
     }
-    this.idcounter = this.idcounter + 1;
     if (data.socketId) {
       this.assetsBySocket[data.socketId] = asset;
     }
@@ -367,7 +367,7 @@ function assetActions(asset, input) {
 
           if (asset.vitals.weaponCooldown === undefined || asset.vitals.weaponCooldown < new Date().getTime()) {
             if (asset.vitals.charge >= 100) {
-              const v = new THREE.Vector3(0, 0, 10000);
+              const v = new THREE.Vector3(0, 0, 20000);
               v.applyQuaternion(orientation);
 
               const props = {
@@ -386,7 +386,7 @@ function assetActions(asset, input) {
                 dz: v.z + asset.dz,
                 interactive: true,
                 radius: 120,
-                damage: weapon.damage[2],
+                damage: weapon.damage[0],
                 t: new Date(),
                 vitals: {
                   birth: new Date().getTime(),
@@ -552,8 +552,19 @@ function calculateCollisions() {
     }
 
     if (compareThese.length > 0) {
-      if (a.name === 'Panther' || a.name === 'Charge shot') {
-        //console.log('collision with ' + a.name, compareThese.map((a) => a.name + a.id));
+      if (a.name === 'Charge shot') {
+        compareThese.forEach((target) => {
+          if (target.vitals.health) {
+            //console.log('collision1', target.name, `${target.x} ${target.y} ${target.z}    ${a.x} ${a.y} ${a.z}`, a.vitals.birth + a.vitals.lifespan - new Date().getTime(), a.lowX, a.lowY, a.lowZ, a.highX, a.highY, a.highZ);
+            target.vitals.health -= a.damage;
+          }
+        });
+      } else {
+        const chargeShot = compareThese.find(b => b.name === 'Charge shot');
+        if (chargeShot && a.vitals.health) {
+          // console.log('collision1', a.name, `${chargeShot.x} ${chargeShot.y} ${chargeShot.z}    ${a.x} ${a.y} ${a.z}`);
+          a.vitals.health -= chargeShot.damage;
+        }
       }
     }
   }
