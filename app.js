@@ -127,6 +127,7 @@ class AssetsService {
       ddi: data.ddi !== undefined ? data.ddi : 0,
       ddj: data.ddj !== undefined ? data.ddj : 0,
       ddk: data.ddk !== undefined ? data.ddk : 0,
+      damage: data.damage,
       radius: data.radius,
       interactive: data.interactive,
       vitals: data.vitals,
@@ -206,6 +207,10 @@ class AssetsService {
           object = this.files[asset.obj];
         }
       }
+
+      object.position.set(asset.x, asset.y, asset.z);
+      const newOrientation = new THREE.Quaternion(asset.i, asset.j, asset.k, asset.w);
+      object.setRotationFromQuaternion(newOrientation);
 
       object.asset = asset;
       this.objects[asset.id] = object;
@@ -292,10 +297,11 @@ let t = new Date();
 
 let gameLoopStart = new Date();
 let gameLoopTicks = 0;
+let tickDuration = 50;
 const gameLoop = async () => {
   // Javascript's setInterval and setTimeout doesn't guarantee timing
   gameLoopTicks++;
-  const expected = gameLoopTicks * 100;
+  const expected = gameLoopTicks * tickDuration;
 
   const drift = new Date() - gameLoopStart - expected;
 
@@ -315,27 +321,32 @@ const gameLoop = async () => {
       }
       Object.keys(forces).map((key) => { changes[key] = forces[key] });
 
-      changes.vitals = calculateAssetVitals(asset);
+      const vitals = calculateAssetVitals(asset);
+      if (vitals) {
+        changes.vitals = vitals;
+      }
 
       changes.id = asset.id;
 
       return changes;
     });
 
-    const timestamp = new Date().getTime();
-
     // Timed game events
     calculateTimedEvents(gameLoopTicks);
 
-    // Simulate lag
+    const timestamp = new Date().getTime();
     let currenttick = gameLoopTicks;
-    setTimeout(() => {
-      app.service('assets').emit('networktick', {t: timestamp, assets: allChanges, ticks: currenttick});
-    }, 0); //(Math.random() * 200) + 200);
+
+    if (gameLoopTicks % 2 === 0) {
+      // Simulate lag
+      setTimeout(() => {
+        app.service('assets').emit('networktick', {t: timestamp, assets: allChanges, ticks: currenttick});
+      }, 0); //(Math.random() * 200) + 200);
+    }
   }
 
   // Account for the time drift 
-  setTimeout(gameLoop, 100 - drift)
+  setTimeout(gameLoop, tickDuration - drift)
 }
 
 function assetActions(asset, input) {
@@ -375,6 +386,7 @@ function assetActions(asset, input) {
                 dz: v.z + asset.dz,
                 interactive: true,
                 radius: 120,
+                damage: weapon.damage[2],
                 t: new Date(),
                 vitals: {
                   birth: new Date().getTime(),
@@ -398,6 +410,8 @@ function assetActions(asset, input) {
                 name: 'laser',
                 attached: asset.id,
                 type: 'attached',
+                material: weapon.material,
+                damage: weapon.damage[1],
                 x: weapon.positions[1][0],
                 y: weapon.positions[1][1],
                 z: weapon.positions[1][2]
@@ -408,6 +422,8 @@ function assetActions(asset, input) {
                 name: 'laser',
                 attached: asset.id,
                 type: 'attached',
+                damage: weapon.damage[2],
+                material: weapon.material,
                 x: weapon.positions[2][0],
                 y: weapon.positions[2][1],
                 z: weapon.positions[2][2]
@@ -446,7 +462,7 @@ function assetActions(asset, input) {
 }
 
 function calculateAssetVitals(asset) {
-  if (asset.vitals && asset.removed !== true) {
+  if (asset.vitals) {
     // Charge
     if (asset.vitals.charge < 100) asset.vitals.charge += 3;
     if (asset.vitals.charge > 100) asset.vitals.charge = 100;
@@ -454,10 +470,18 @@ function calculateAssetVitals(asset) {
     // Lifespan
     if (asset.vitals.lifespan && asset.vitals.birth) {
       if (asset.vitals.birth + asset.vitals.lifespan < new Date().getTime()) {
-        app.service('assets').remove(asset.id).then((a, b) => {
-        });
-        asset.vitals.removed = true;
+        app.service('assets').remove(asset.id).then((a, b) => {});
       }
+    }
+
+    // Health
+    if (asset.vitals.health <= 0 && !asset.vitals.destroyed) {
+      asset.vitals.destroyed = new Date();
+    }
+
+    // Remove 2 seconds after being destroyed
+    if (asset.vitals.destroyed && new Date() - asset.vitals.destroyed > -1) {
+      app.service('assets').remove(asset.id).then((a, b) => {});
     }
   }
   return asset.vitals;
@@ -504,7 +528,8 @@ function calculateCollisions() {
 
     const compareThese = [];
 
-    while (i+leftIndex >= 0 && interactiveAssets[i+leftIndex].x > a.lowZ - largestBuffer) {
+    // This solution fails to compare objects whose lowZ and highZ intersect, but whose z<lowZ or z>highZ.
+    while (i+leftIndex >= 0 && interactiveAssets[i+leftIndex].z > a.lowZ - largestBuffer) {
       const b = interactiveAssets[i+leftIndex];
       totalPairsChecked++;
       if (a.highX > b.lowX && a.lowX < b.highX && 
@@ -528,11 +553,11 @@ function calculateCollisions() {
 
     if (compareThese.length > 0) {
       if (a.name === 'Panther' || a.name === 'Charge shot') {
-        console.log('collision with ' + a.name, compareThese.map((a) => a.name + a.id));
+        //console.log('collision with ' + a.name, compareThese.map((a) => a.name + a.id));
       }
     }
   }
-  console.log('check', totalPairsChecked);
+  //console.log('check', totalPairsChecked);
 
   // Raycasts
   const objects = interactiveAssets.map(a => app.service('assets').getObject(a));
@@ -551,12 +576,18 @@ function calculateCollisions() {
           const direction = new THREE.Vector3(0, 0, 1).applyQuaternion(orientation);
           const intersections = [];
 
+          const offset = new THREE.Vector3(a.x, a.y, a.z);
+          offset.applyQuaternion(orientation);
+
           for (let k=0; k<objects.length; k++) {
             const object = objects[k];
             const position = object.position;
 
-            // For some reason, raycasts behave as if the object is centered at origin
-            const origin = new THREE.Vector3(asset.x - position.x, asset.y - position.y, asset.z - position.z);
+            // For some reason, raycasts behave as if the object is centered at origin, so subtract by object's position
+            const origin = new THREE.Vector3(asset.x + offset.x - position.x, 
+                                             asset.y + offset.y - position.y, 
+                                             asset.z + offset.z - position.z);
+
             const raycast = new THREE.Raycaster(origin, direction);
             const intersect = raycast.intersectObject(object);
 
@@ -580,7 +611,7 @@ function calculateCollisions() {
           if (closest) {
             const targetAsset = closest.object.asset;
             if (targetAsset.vitals && targetAsset.vitals.health !== undefined) {
-              targetAsset.vitals.health = targetAsset.vitals.health - 10;
+              targetAsset.vitals.health = targetAsset.vitals.health - a.damage;
             }
           }
         }
@@ -595,8 +626,8 @@ function calculateCollisions() {
 function calculateAssetForces(asset, userInput) {
   const angularDrag = 3;
   const torqueRadians = 4;
-  const dragRatio = 0.00007;
-  const engineSpeed = 5000;
+  const dragRatio = 0.00004;
+  const engineSpeed = 2400;
 
   // Position/Velocity/Acceleration
   const orientation = new THREE.Quaternion(asset.i, asset.j, asset.k, asset.w);
@@ -719,19 +750,19 @@ function calculateTimedEvents(tick) {
       k: 0,
       x: 0,
       y: 1000 + Math.random() * 9000,
-      z: 20000,
+      z: 100000,
       dx: 0,
       dy: 0,
-      dz: -100 - Math.random() * 2000,
+      dz: -200 - Math.random() * 2400,
       scale: 1000,
       radius: 1000,
       t: new Date(),
       interactive: true,
       vitals: {
         birth: new Date().getTime(),
-        lifespan: 60 * 1000,
-        health: 400,
-        maxHealth: 400
+        lifespan: 3 * 60 * 1000,
+        health: 140,
+        maxHealth: 140
       },
       type: 'asteroid',
       material: {
@@ -764,6 +795,10 @@ function randomSpaceship() {
     texture: '/public/SpaceFighter02/F02_512.jpg',
     radius: 120,
     weapons: [{
+      material: {
+        color: 0xff4333,
+      },
+      damage: [400, 10, 10],
       name: 'charger',
       positions: [[0, 50, 250], [80, 0, 80], [-80, 0, 80]],
     }],

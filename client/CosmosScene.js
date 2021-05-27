@@ -9,6 +9,7 @@ import starsData from './stars-2500.js';
 class Timer {
   constructor() {
     this.start = undefined;
+    this.tickDuration = 50;
     this.ticks = 0;
     this.startTick = 0;
     this.lastTick = undefined;
@@ -23,7 +24,7 @@ class Timer {
     // Adjust start time to match average ping
     const delta = this.delta();
     if (Math.abs(delta) > 0.01) {
-      let shift = Math.trunc(delta * 100);
+      let shift = Math.trunc(delta * this.tickDuration);
       // Clamp, but bias towards lower ping
       shift = shift > 10 ? 10 : shift;
       this.start = new Date(this.start.getTime() + shift);
@@ -36,7 +37,7 @@ class Timer {
     this.lastTick = new Date();
   }
   delta() {
-    return (new Date() - this.start - (this.ticks - this.startTick) * 100) / 1000;
+    return (new Date() - this.start - (this.ticks - this.startTick) * this.tickDuration) / 1000;
   }
   roundtrip(start, end, serverTime) {
     this.latestPing = end - start;
@@ -135,7 +136,7 @@ function init() {
     color.toArray( colors, a ); a += 3;
     color.toArray( colors, a ); a += 3;
     color.toArray( colors, a ); a += 3;
-    
+
     const geometry = new BufferGeometry();
     geometry.setAttribute( 'position', new Float32BufferAttribute( vertices, 3 ) );
     geometry.setAttribute( 'color', new Float32BufferAttribute( colors, 3 ) );
@@ -170,13 +171,6 @@ function init() {
     const line = new Line( geometry, material );
     scene.add(line);
   }
-
-  
-  //const gridHelper = new GridHelper( 500000, 50, 0x0000ff, 0x808080 );
-  //scene.add(gridHelper);
-
-  //let worldAxis = new AxesHelper(2000);
-  //scene.add(worldAxis);
 
   requestAnimationFrame(() => animate(0));
 }
@@ -322,8 +316,6 @@ export function renderSpace() {
 }
 
 export async function addAsset(asset) {
-  console.log('Adding asset', asset.name);
-
   assets[asset.id] = asset;
 
   if (asset[asset.id] === undefined) {
@@ -376,7 +368,7 @@ export async function addAsset(asset) {
         let geometry = new SphereBufferGeometry(asset.scale, widthSegments, heightSegments);
         object = new Mesh(geometry, material);
       } else if (asset.obj === 'line' && asset.type === 'attached') {
-        const material = new LineBasicMaterial({ color: 0x0000ff });
+        const material = new LineBasicMaterial({ color: asset.material.color });
 
         const points = [];
         points.push(new Vector3( asset.x, asset.y, asset.z));
@@ -413,17 +405,15 @@ export async function addAsset(asset) {
 }
 
 export function updateAsset(asset) {
-  if (asset.vitals === undefined || asset.vitals.removed !== true) {
-    const existing = assets[asset.id];
-    if (existing) {
-      for (let key in asset) {
-        if (existing[key] !== asset[key]) {
-          existing[key] = asset[key];
-        }
+  const existing = assets[asset.id];
+  if (existing) {
+    for (let key in asset) {
+      if (existing[key] !== asset[key]) {
+        existing[key] = asset[key];
       }
-    } else {
-      console.error('Unable to update asset, no asset found with with the id ' + asset.id);
     }
+  } else {
+    // console.error('Unable to update asset, no asset found with with the id ' + asset.id);
   }
 }
 
