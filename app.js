@@ -10,6 +10,7 @@ const feathersKnex    = require('feathers-knex');
 const authService     = require('./feathers/auth');
 const accountsService = require('./feathers/services/accounts/accounts.service.js');
 const sol             = require('./solar-systems/sol.js');
+const levels          = require('./levels/levels.js').levels();
 
 THREE                 = require('three'); 
 require('three/examples/js/loaders/OBJLoader'); // Requires THREE to be a global variable
@@ -751,42 +752,9 @@ function calculateAssetTick(asset) {
 }
 
 function calculateTimedEvents(tick) {
-  if (tick % 20 === 0) {
-    app.service('assets').create({
-      name: 'Asteroid',
-      obj: 'sphere',
-      w: 1,
-      i: 0,
-      j: 0,
-      k: 0,
-      x: 0,
-      y: 1000 + Math.random() * 9000,
-      z: 100000,
-      dx: 0,
-      dy: 0,
-      dz: -200 - Math.random() * 2400,
-      scale: 1000,
-      radius: 1000,
-      t: new Date(),
-      interactive: true,
-      vitals: {
-        birth: new Date().getTime(),
-        lifespan: 3 * 60 * 1000,
-        health: 140,
-        maxHealth: 140
-      },
-      type: 'asteroid',
-      material: {
-        color: 0x202020,
-        emissive: 0x111111,
-        displacementMap: randomAsteroidMap(),
-        displacementScale: 10 + Math.random()*240,
-        bumpMap: randomAsteroidMap(),
-        bumpScale: 10 + Math.random()*240,
-        shininess: 0,
-      }
-    });
-  }
+  const create = app.service('assets').create
+  const that = app.service('assets')
+  levels[0].tick(tick, create, that);
 }
 
 
@@ -825,10 +793,6 @@ function randomSpaceship() {
   }];
 
   return options[Math.floor(Math.random() * options.length)];
-}
-function randomAsteroidMap() {
-  const options = ['/public/13302-normal.jpg', '/public/3215-bump.jpg', '/public/12253.jpg', '/public/12098.jpg'];
-  return options[Math.floor(Math.random() * options.length)]
 }
 function promisify(f, that, errorFirst) {
   return function (...args) {
