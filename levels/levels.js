@@ -8,7 +8,6 @@ class Level1 {
   tick (tick, assetCreate, that) {
     if (tick % 20 === 0) {
       assetCreate.call(that, randomlyGeneratedAsteroid(this.stageWidth)).then((a) => {
-        console.log('Created asset...', a);
       });
     }
   }

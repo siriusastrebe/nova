@@ -172,6 +172,7 @@ class AssetsService {
         this.interactiveAssets.splice(this.interactiveAssets.indexOf(asset), 1);
       }
     }
+    
     return id;
   }
   async patch(id, params) {
@@ -400,7 +401,7 @@ function assetActions(asset, input) {
                 }
               }
 
-              asset.vitals.charge -= 40;
+              asset.vitals.charge -= 50;
               asset.vitals.weaponCooldown = new Date().getTime() + 300;
 
               app.service('assets').create(props).then((a, b) => {
@@ -430,7 +431,7 @@ function assetActions(asset, input) {
                 z: weapon.positions[2][2]
               }
 
-              asset.vitals.charge -= 4;
+              asset.vitals.charge -= 3.2;
 
               if (asset.attached === undefined) asset.attached = [];
               app.service('assets').create(l1).then((a, b) => {
@@ -441,7 +442,7 @@ function assetActions(asset, input) {
               });
             } else {
               // Drain laser energy
-              asset.vitals.charge -= 4;
+              asset.vitals.charge -= 3.2;
             }
           }
         }
@@ -752,8 +753,8 @@ function calculateAssetTick(asset) {
 }
 
 function calculateTimedEvents(tick) {
-  const create = app.service('assets').create
-  const that = app.service('assets')
+  const create = app.service('assets').create;
+  const that = app.service('assets');
   levels[0].tick(tick, create, that);
 }
 

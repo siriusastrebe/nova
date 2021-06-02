@@ -123,7 +123,7 @@ function init() {
 
   const xoffset = columns % 2 === 1 ? 0 : 500;
   const columns = 10;
-  for ( let i=0; i<columns; i++) {
+  for ( let i=0; i<columns; i++ ) {
     const vertices = [], colors = [];
     let a = 0;
 
@@ -230,8 +230,13 @@ function render() {
     }
   });
 
-  // Camera fixing
   if (controlledAsset && controlledAsset.object) {
+    // Charge
+    if (controlledAsset.vitals && controlledAsset.vitals.charge !== undefined) {
+      document.getElementById('chargeAmount').style.width = `${controlledAsset.vitals.charge}%`;
+    }
+
+    // Camera fixing
     const position = new Vector3(controlledAsset.object.position.x, controlledAsset.object.position.y, controlledAsset.object.position.z);
     const orientation = controlledAsset.object.quaternion;
 
