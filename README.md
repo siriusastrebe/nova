@@ -5,12 +5,10 @@ https://earthobservatory.nasa.gov/features/BlueMarble/BlueMarble_2002.php
 https://codesandbox.io/s/github/Sean-Bradley/Three.js-TypeScript-Boilerplate/tree/bsc5/?file=/src/client/client.ts
 
 
-
-
 # Issues I faced
 The mathematics behind consecutive Euler angle rotations
 Synchronized timer
-Deterministic physics
+Deterministic physics, delayed actions, delayed client side rendering
 
 # List of Physics engines:
 Cannon.js

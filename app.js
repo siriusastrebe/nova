@@ -401,7 +401,7 @@ function assetActions(asset, input) {
                 }
               }
 
-              asset.vitals.charge -= 50;
+              asset.vitals.charge -= 38;
               asset.vitals.weaponCooldown = new Date().getTime() + 300;
 
               app.service('assets').create(props).then((a, b) => {
@@ -431,7 +431,7 @@ function assetActions(asset, input) {
                 z: weapon.positions[2][2]
               }
 
-              asset.vitals.charge -= 3.2;
+              asset.vitals.charge -= 3.3;
 
               if (asset.attached === undefined) asset.attached = [];
               app.service('assets').create(l1).then((a, b) => {
@@ -442,7 +442,7 @@ function assetActions(asset, input) {
               });
             } else {
               // Drain laser energy
-              asset.vitals.charge -= 3.2;
+              asset.vitals.charge -= 3.3;
             }
           }
         }
@@ -768,9 +768,6 @@ gameLoop().then(() => {});
 // ---- Helper functions ----
 function randomSpaceship() {
   const options = [{
-//    obj: '/public/SpaceFighter01/SpaceFighter01.obj',
-//    texture: '/public/SpaceFighter01/F01_512.jpg'
-//  }, {
     obj: '/public/SpaceFighter02/SpaceFighter02.obj',
     texture: '/public/SpaceFighter02/F02_512.jpg',
     radius: 120,
@@ -782,15 +779,6 @@ function randomSpaceship() {
       name: 'charger',
       positions: [[0, 50, 250], [80, 0, 80], [-80, 0, 80]],
     }],
-//  }, {
-//    obj: '/public/SpaceFighter03/SpaceFighter03.obj',
-//    texture: '/public/SpaceFighter03/F03_512.jpg'
-//  }, {
-//    obj: '/public/Shuttle01/Shuttle01.obj',
-//    texture: '/public/Shuttle01/S01_512.jpg'
-//  }, {
-//    obj: '/public/Shuttle02/Shuttle02.obj',
-//    texture: '/public/Shuttle02/S02_512.jpg'
   }];
 
   return options[Math.floor(Math.random() * options.length)];
