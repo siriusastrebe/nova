@@ -64,6 +64,7 @@ class UserInputsService {
       clockwise: false,
       counterclockwise: false,
       space: false,
+      shift: false,
       mousedown: false,
     }
     this.users[data.id] = userInput;
@@ -640,12 +641,19 @@ function calculateAssetForces(asset, userInput) {
   const angularDrag = 3;
   const torqueRadians = 4;
   const dragRatio = 0.00004;
-  const engineSpeed = 2400;
+
+  const thrust = userInput.space || userInput.shift;
+  let engineSpeed = 2400;
+
+  if (userInput.shift && asset.vitals && asset.vitals.charge > 4) {
+    asset.vitals.charge -= 4;
+    engineSpeed = engineSpeed * 10;
+  }
 
   // Position/Velocity/Acceleration
   const orientation = new THREE.Quaternion(asset.i, asset.j, asset.k, asset.w);
   let force = new THREE.Vector3(0, 0, 0);
-  force = new THREE.Vector3(0, 0, userInput.space ? 1 : 0);
+  force = new THREE.Vector3(0, 0, thrust ? 1 : 0);
   force.applyQuaternion(orientation);
 
   // Automatic space drag (lol not a real thing)

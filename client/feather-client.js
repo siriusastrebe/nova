@@ -156,6 +156,8 @@ function keyToAction(e) {
     action = 'clockwise';
   } else if (key === ' ') {
     action = 'space';
+  } else if (key === 'shift') {
+    action = 'shift';
   }
 
   return action;
