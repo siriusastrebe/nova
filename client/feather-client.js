@@ -84,9 +84,9 @@ export default function initializeFeathers(addAsset, updateAsset, removeAsset, s
         const params = {
           [action]: true
         }
-        
-        if (action === 'space') {
-          ignite();
+
+        if (action === 'space' || action === 'shift') {
+          ignite(userInputs['shift'] === true);
         }
 
         feathers.service('userInputs').patch(new Date().getTime(), params).then((a, b) => {
@@ -106,8 +106,12 @@ export default function initializeFeathers(addAsset, updateAsset, removeAsset, s
           [action]: false
         }
 
-        if (action === 'space') {
-          quench();
+        if ((action === 'space' || action === 'shift')) {
+          if (userInputs['shift'] === true || userInputs['space'] === true) {
+            ignite(userInputs['shift'] === true);
+          } else {
+            quench();
+          }
         }
 
         feathers.service('userInputs').patch(new Date().getTime(), params);

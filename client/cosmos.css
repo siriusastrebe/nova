@@ -29,6 +29,7 @@ body {
   border: 1px solid orange;
 }
 #chargeAmount {
+  transition: width 0.2s;
   background-color: orange;
   height: 30px;
 }

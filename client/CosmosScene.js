@@ -446,27 +446,39 @@ export function setControlledAsset(asset) {
 }
 
 let ignition = new Group();
-let ignitionLight = new PointLight( 0xff3322, 5, 500 );
 let ignitionTime;
+let ignitionLight = new PointLight( 0xffffff, 5, 500 );
 scene.add(ignition);
-export function ignite() {
-  const colors = [0xffff00, 0xff1200];
+export function ignite(boosted) {
+  const colors = [0xffff00, 0xff1200, 0xFF00FF, 0x1200FF];
+  const lightColors = [0xff3322, 0x8800FF]
   const opacities = [0.8, 0.6];
-  for (let i=0; i<2; i++) {
-    const geometry = new ConeGeometry( 8+i*2, 120+i*80, 12, 1, true );
-    const material = new MeshBasicMaterial({color: colors[i], transparent: true, opacity: opacities[i]});
-    const cone = new Mesh(geometry, material);
-    cone.setRotationFromEuler(new Euler(-Math.PI/2, 0, 0, 'XYZ'));
-    cone.position.z = -i*40 -160;
-    cone.position.y = 24;
-    ignition.add(cone);
-  }
 
-  if (controlledAsset) {
-    scene.add(ignitionLight);
-  }
+  if (ignition.children.length === 0) {
+    for (let i=0; i<2; i++) {
+      const geometry = new ConeGeometry( 8+i*2, 120+i*80, 12, 1, true );
+      const material = new MeshBasicMaterial({color: colors[i + (boosted * 2)], transparent: true, opacity: opacities[i]});
+      const cone = new Mesh(geometry, material);
+      cone.setRotationFromEuler(new Euler(-Math.PI/2, 0, 0, 'XYZ'));
+      cone.position.z = -i*40 -160;
+      cone.position.y = 24;
+      ignition.add(cone);
+    }
 
-  ignitionTime = new Date();
+    ignitionLight.color.setHex(lightColors[Number(boosted)])
+
+    if (controlledAsset) {
+      scene.add(ignitionLight);
+    }
+
+    ignitionTime = new Date();
+  } else {
+    for (let i=0; i<ignition.children.length; i++) {
+      console.log();
+      ignition.children[i].material.color.setHex(colors[i + (boosted * 2)]);
+    }
+    ignitionLight.color.setHex(lightColors[Number(boosted)])
+  }
 }
 
 export function quench() {

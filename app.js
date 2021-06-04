@@ -640,7 +640,7 @@ function calculateCollisions() {
 function calculateAssetForces(asset, userInput) {
   const angularDrag = 3;
   const torqueRadians = 4;
-  const dragRatio = 0.00004;
+  const dragRatio = 0.0001;
 
   const thrust = userInput.space || userInput.shift;
   let engineSpeed = 2400;
