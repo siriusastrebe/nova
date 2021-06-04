@@ -13,11 +13,11 @@ class Timer {
     this.ticks = 0;
     this.startTick = 0;
     this.lastTick = undefined;
-
     this.lastestPing = undefined;
     this.roundTrips = [];
+    this.averageServerComputeTime = 0;
   }
-  setTicks(ticks, serverTime) {
+  setTicks(ticks, serverTime, serverComputeTime) {
     this.ticks = ticks;
     this.lastTick = new Date();
 
@@ -28,6 +28,22 @@ class Timer {
       // Clamp, but bias towards lower ping
       shift = shift > 10 ? 10 : shift;
       this.start = new Date(this.start.getTime() + shift);
+    }
+
+    this.averageServerComputeTime += serverComputeTime / 10;
+
+    if (ticks % 10 === 0 && this.roundTrips.length > 10) {
+      let averageServerToLocalDelta = 0;
+      for (let i=0; i<this.roundTrips.length; i++) {
+        const trip = this.roundTrips[i];
+        const delta = trip.end - trip.serverTime;
+        averageServerToLocalDelta += delta / this.roundTrips.length;
+      }
+      
+      document.getElementById('ping').innerHTML = Math.floor((new Date().getTime() - serverTime) + averageServerToLocalDelta);
+      
+      document.getElementById('serverDelay').innerHTML = Math.round(this.averageServerComputeTime);
+      this.averageServerComputeTime = 0;
     }
   }
   startTimer(ticks, serverTime) {
@@ -45,12 +61,12 @@ class Timer {
     const trip = {
       start: start,
       end: end,
-      serverTime: serverTime
+      serverTime: serverTime,
     }
 
     this.roundTrips.unshift(trip);
     // Shave off for efficiency
-    if (this.roundTrips.length > 150) this.roundTrips.length = 100;
+    if (this.roundTrips.length > 80) this.roundTrips.length = 50;
 
     document.getElementById('ping').innerHTML = Math.floor(this.latestPing);
   }
@@ -474,7 +490,6 @@ export function ignite(boosted) {
     ignitionTime = new Date();
   } else {
     for (let i=0; i<ignition.children.length; i++) {
-      console.log();
       ignition.children[i].material.color.setHex(colors[i + (boosted * 2)]);
     }
     ignitionLight.color.setHex(lightColors[Number(boosted)])

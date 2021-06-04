@@ -18,8 +18,9 @@ export default class Cosmos extends Component {
           <div id="cosmosscene"></div>
           <div id="diagnostics">
             Load: <span id="workload"></span><br />
-            FPS: <span id="fps"></span><br />
-            Ping: <span id="ping"></span>
+            Server Delay: <span id="serverDelay"></span><br />
+            Ping: <span id="ping"></span><br />
+            FPS: <span id="fps"></span>
           </div>
           <div id="chargeBar">
             <div id="chargeContainer">          

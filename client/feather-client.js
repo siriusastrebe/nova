@@ -55,11 +55,12 @@ export default function initializeFeathers(addAsset, updateAsset, removeAsset, s
     const assets = data.assets;
     const ticks = data.ticks;
     const t = data.t;
+    const computeTime = data.computeTime;
 
     if (timer.start === undefined) {
       timer.startTimer(ticks, t);
     } else {
-      timer.setTicks(ticks, t);
+      timer.setTicks(ticks, t, computeTime);
     }
 
     assets.forEach((asset) =>  {

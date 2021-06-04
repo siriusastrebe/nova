@@ -74,6 +74,9 @@ class UserInputsService {
     const socketId = c.connection.socketId;
     const userInput = this.users[socketId];
 
+    // Simulate lag
+    setTimeout(async () => {
+
     for (let key in params) {
       const value = params[key];
       if (key in userInput) {
@@ -81,9 +84,10 @@ class UserInputsService {
       }
     }
 
-    //setTimeout(async () => {
+      setTimeout(async () => {
       c.connection.socket.emit('roundtrip', {t: new Date().getTime(), start: id});
-    //}, 100);
+      }, Math.random() * 50 + 50);
+    }, Math.random() * 50 + 50);
 
     return userInput;
   }
@@ -303,6 +307,7 @@ let gameLoopTicks = 0;
 let tickDuration = 50;
 const gameLoop = async () => {
   // Javascript's setInterval and setTimeout doesn't guarantee timing
+  const loopStart = new Date();
   gameLoopTicks++;
   const expected = gameLoopTicks * tickDuration;
 
@@ -337,14 +342,15 @@ const gameLoop = async () => {
     // Timed game events
     calculateTimedEvents(gameLoopTicks);
 
+    const computeTime = new Date() - loopStart;
     const timestamp = new Date().getTime();
     let currenttick = gameLoopTicks;
 
     if (gameLoopTicks % 2 === 0) {
       // Simulate lag
       setTimeout(() => {
-        app.service('assets').emit('networktick', {t: timestamp, assets: allChanges, ticks: currenttick});
-      }, 0); //(Math.random() * 200) + 200);
+        app.service('assets').emit('networktick', {t: timestamp, assets: allChanges, ticks: currenttick, computeTime: computeTime});
+      }, (Math.random() * 100) + 100);
     }
   }
 
