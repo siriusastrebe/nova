@@ -84,10 +84,10 @@ class UserInputsService {
       }
     }
 
-      setTimeout(async () => {
+    setTimeout(async () => {
       c.connection.socket.emit('roundtrip', {t: new Date().getTime(), start: id});
-      }, Math.random() * 50 + 50);
-    }, Math.random() * 50 + 50);
+      }, Math.random() * 20 + 20);
+    }, Math.random() * 20 + 20);
 
     return userInput;
   }
@@ -350,7 +350,7 @@ const gameLoop = async () => {
       // Simulate lag
       setTimeout(() => {
         app.service('assets').emit('networktick', {t: timestamp, assets: allChanges, ticks: currenttick, computeTime: computeTime});
-      }, (Math.random() * 100) + 100);
+      }, (Math.random() * 40) + 40);
     }
   }
 
@@ -646,14 +646,14 @@ function calculateCollisions() {
 function calculateAssetForces(asset, userInput) {
   const angularDrag = 3;
   const torqueRadians = 4;
-  const dragRatio = 0.0001;
+  const dragRatio = 0.00008;
 
   const thrust = userInput.space || userInput.shift;
   let engineSpeed = 2400;
 
   if (userInput.shift && asset.vitals && asset.vitals.charge > 4) {
     asset.vitals.charge -= 4;
-    engineSpeed = engineSpeed * 10;
+    engineSpeed = engineSpeed * 20;
   }
 
   // Position/Velocity/Acceleration
@@ -766,10 +766,27 @@ function calculateAssetTick(asset) {
   }
 }
 
-function calculateTimedEvents(tick) {
-  const create = app.service('assets').create;
-  const that = app.service('assets');
-  levels[0].tick(tick, create, that);
+let level = 0;
+let currentLevel = new levels[0](app.service('assets'));
+let levelStartTick = 0;
+function calculateTimedEvents(physicsTick) {
+  const service = app.service('assets');
+  const tick = physicsTick - levelStartTick;
+
+  currentLevel.tick(tick, service);
+
+  if (currentLevel.levelLost(tick, service)) {
+    currentLevel = new levels[levels.length-1](service);
+    return 
+  }
+
+  if (currentLevel.levelEnd(tick, service)) {
+    level++;
+    levelStartTick = physicsTick;
+    currentLevel = new levels[level](service);
+  }
+
+  return
 }
 
 

@@ -23,6 +23,7 @@ body {
   align-items: center;
   justify-content: center;
   width: 100%;
+  opacity: 0.8;
 }
 #chargeContainer {
   width: 40vw;
