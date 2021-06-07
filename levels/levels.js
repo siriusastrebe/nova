@@ -1,12 +1,18 @@
-class Level1 {
-  constructor(service) {
-    this.name = 'Level 1';
-    this.level = 1;
-    this.announcement = 'Stop the asteroids from reaching Earth';
-    this.stageWidth = 5000;
-
-    deleteAnnouncement(service);
+class Levels {
+  constructor(service, name, levelNumber, announcement, stageWidth) {
+    deleteAnnouncements(service);
     createAnnouncement(service, this.announcement);
+
+    this.name = name;
+    this.level = levelNumber;
+    this.announcement = announcement;
+    this.stageWidth = stageWidth;
+  }
+}
+
+class Level1 extends Levels {
+  constructor(service) {
+    super(service, 'Level 1', 1, 'Stop the asteroids from reaching Earth', 5000);
   }
   tick (tick, service) {
     if (tick % 20 === 0 && tick < 20 * 60) {
@@ -17,25 +23,12 @@ class Level1 {
     return standardLossCondition(tick, service);
   }
   levelEnd(tick, service) {
-    if (tick > 20 * 60 && tick % 20 === 0) {
-      // When there are no asteroids left
-      if (Object.values(service.assets).find(a => a.type === 'asteroid') === undefined) {
-        deleteAnnouncement(service);
-        return true;
-      }
-    }
-    return false;
+    return standardWinCondition(tick, 20 * 60, service);
   }
 }
-class Level2 {
+class Level2 extends Levels {
   constructor(service) {
-    this.name = 'Level 2';
-    this.level = 2;
-    this.announcement = 'Stop the asteroids from reaching Earth';
-    this.stageWidth = 7500;
-
-    deleteAnnouncement(service);
-    createAnnouncement(service, this.announcement);
+    super(service, 'Level 2', 2, 'Stop the asteroids from reaching Earth', 7500);
   }
   tick (tick, service) {
     if (tick % 20 === 0 && tick < 20 * 60) {
@@ -47,24 +40,12 @@ class Level2 {
     return standardLossCondition(tick, service);
   }
   levelEnd(tick, service) {
-    if (tick > 20 * 60 && tick % 20 === 0) {
-      // When there are no asteroids left
-      if (Object.values(service.assets).find(a => a.type === 'asteroid') === undefined) {
-        return true;
-      }
-    }
-    return false;
+    return standardWinCondition(tick, 20 * 60, service);
   }
 }
-class End {
+class End extends Levels {
   constructor(service) {
-    this.name = 'End';
-    this.level = 0;
-    this.announcement = "Congratulations! You've beaten the game";
-    this.stageWidth = 10000;
-
-    deleteAnnouncement(service);
-    createAnnouncement(service, this.announcement);
+    super(service, 'End', 0, "Congratulations! You've beaten the game", 100000);
   }
   tick() {
   }
@@ -81,21 +62,22 @@ function standardLossCondition(tick, service) {
   if (tick % 100 === 0) {
     const escaped = Object.values(service.assets).find(a => a.type === 'asteroid' && a.z < -110000)
     if (escaped !== undefined) {
-console.log(escaped);
       return true;
     }
   }
   return false;
 }
 
-
-exports.levels = function () {
-  return [
-    Level1, 
-    Level2, 
-    End,
-  ];
+function standardWinCondition(tick, earliestVictoryTick, service) {
+  if (tick > earliestVictoryTick && tick % 20 === 0) {
+    // When there are no asteroids left
+    if (Object.values(service.assets).find(a => a.type === 'asteroid') === undefined) {
+      return true;
+    }
+  }
+  return false;
 }
+
 
 function randomlyGeneratedAsteroid(stageWidth) {
   const props = {
@@ -164,7 +146,7 @@ function createAnnouncement(service, message) {
   });
 }
 
-function deleteAnnouncement(service) {
+function deleteAnnouncements(service) {
   const announcement = currentAnnouncement;
   if (announcement) {
     service.remove(announcement.id).then(() => {
@@ -178,4 +160,12 @@ function deleteAnnouncement(service) {
 function randomAsteroidMap() {
   const options = ['/public/13302-normal.jpg', '/public/3215-bump.jpg', '/public/12253.jpg', '/public/12098.jpg'];
   return options[Math.floor(Math.random() * options.length)]
+}
+
+exports.levels = function () {
+  return [
+    Level1, 
+    Level2, 
+    End,
+  ];
 }
