@@ -7,7 +7,6 @@ body {
 #darkness {
   background-color: black;
 }
-
 #diagnostics {
   position: absolute;
   top: 10px;
@@ -15,7 +14,6 @@ body {
   z-index: 1;
   color: rosybrown;
 }
-
 #chargeBar {
   position: absolute;
   bottom: 38px;
@@ -28,9 +26,22 @@ body {
 #chargeContainer {
   width: 40vw;
   border: 1px solid orange;
+  border-radius: 8px;
 }
 #chargeAmount {
   transition: width 0.2s;
   background-color: orange;
   height: 30px;
+  border-radius: 8px;
+}
+#announcement {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  top: 36%;
+  width: 100%;
+  color: white;
+  font-size: 240%;
 }

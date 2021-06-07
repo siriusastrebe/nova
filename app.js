@@ -141,6 +141,7 @@ class AssetsService {
       weapons: data.weapons,
       scale: data.scale,
       type: data.type,
+      text: data.text,
       subtype: data.subtype,
       socketId: data.socketId
     }
@@ -649,11 +650,11 @@ function calculateAssetForces(asset, userInput) {
   const dragRatio = 0.00008;
 
   const thrust = userInput.space || userInput.shift;
-  let engineSpeed = 2400;
+  let engineSpeed = 3600;
 
   if (userInput.shift && asset.vitals && asset.vitals.charge > 4) {
     asset.vitals.charge -= 4;
-    engineSpeed = engineSpeed * 20;
+    engineSpeed = engineSpeed * 11;
   }
 
   // Position/Velocity/Acceleration

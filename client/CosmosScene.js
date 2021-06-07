@@ -408,12 +408,21 @@ export async function addAsset(asset) {
           }
         });
       }
+
+      object.receiveShadow = false;
+      object.castShadow = false;
+
+      asset.object = object;
     }
 
-    object.receiveShadow = false;
-    object.castShadow = false;
-
-    asset.object = object;
+    if (asset.type === 'announcement') {
+      const announcement = document.getElementById('announcement');
+      const title = document.getElementById('announcementTitle');
+      const text = document.getElementById('announcementText');
+      announcement.style.display = 'flex';
+      title.innerHTML = asset.name;
+      text.innerHTML = asset.text;
+    }
 
     if (asset.type === 'attached') {
       assets[asset.attached].object.add(object);

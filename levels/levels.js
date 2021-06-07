@@ -1,12 +1,12 @@
 class Levels {
   constructor(service, name, levelNumber, announcement, stageWidth) {
-    deleteAnnouncements(service);
-    createAnnouncement(service, this.announcement);
-
     this.name = name;
     this.level = levelNumber;
     this.announcement = announcement;
     this.stageWidth = stageWidth;
+
+    deleteAnnouncements(service);
+    createAnnouncement(service, this.name, this.announcement);
   }
 }
 
@@ -135,9 +135,10 @@ function createAsteroid(props) {
 }
 
 let currentAnnouncement;
-function createAnnouncement(service, message) {
+function createAnnouncement(service, title, text) {
   const announcement = {
-    name: message,
+    name: title,
+    text: text,
     type: 'announcement',
   }
 
