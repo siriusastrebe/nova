@@ -1,12 +1,12 @@
 class Levels {
-  constructor(service, name, levelNumber, announcement, stageWidth) {
+  constructor(service, name, levelNumber, announcement, stageWidth, announcementDuration) {
     this.name = name;
     this.level = levelNumber;
     this.announcement = announcement;
     this.stageWidth = stageWidth;
 
     deleteAnnouncements(service);
-    createAnnouncement(service, this.name, this.announcement);
+    createAnnouncement(service, this.name, this.announcement, announcementDuration);
   }
 }
 
@@ -58,23 +58,23 @@ class End extends Levels {
 }
 class Defeat extends Levels {
   constructor(service) {
-    super(service, 'Defeat', 0, "The asteroids broke through! Earth's fate is out of your hands.", 100000);
+    super(service, 'Defeat', 0, "The asteroids broke through! Earth's fate is out of your hands.", 100000, 15000);
     this.countdown = undefined
     service.create({
       type: 'countdown',
-      text: 'Next game starting in 20'
+      text: 'Next game starting in 30'
     }).then(a => this.countdown = a);
   }
   tick(tick, service) {
     if (tick % 20 === 0 && this.countdown) {
-      service.patch(this.countdown.id, {text: 'Next game starting in ' + String(20 - Math.floor(tick / 20))});
+      service.patch(this.countdown.id, {text: 'Next game starting in ' + String(30 - Math.floor(tick / 20))});
     }
   }
   levelLost(tick, service) {
     return false;
   }
   levelEnd(tick, service) {
-    if (tick > 400) {
+    if (tick > 600) {
       const asteroids = Object.values(service.assets).filter(a => a.type === 'asteroid');
       asteroids.forEach((asteroid) => {
         service.remove(asteroid.id);
@@ -170,13 +170,15 @@ function createAsteroid(props) {
 }
 
 let currentAnnouncement;
-function createAnnouncement(service, title, text) {
+function createAnnouncement(service, title, text, customDuration) {
+  const duration = customDuration !== undefined ? customDuration : 4200;
+
   const announcement = {
     name: title,
     text: text,
     type: 'announcement',
     vitals: {
-      duration: 3600,
+      duration: duration,
     }
   }
 
