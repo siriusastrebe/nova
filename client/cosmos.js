@@ -32,6 +32,9 @@ export default class Cosmos extends Component {
             <h1 id="announcementTitle"></h1>
             <div id="announcementText"></div>
           </div>
+          <div id="countdown">
+            <div id="countdownText"></div>
+          </div>
         </div>
       </div>
     );

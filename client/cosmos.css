@@ -46,3 +46,15 @@ body {
   text-shadow: 0px 0px 2px black;
   font-size: 270%;
 }
+#countdown {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  top: 70%;
+  width: 100%;
+  color: gold;
+  text-shadow: 0px 0px 2px black;
+  font-size: 170%;
+}

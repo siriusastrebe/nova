@@ -106,7 +106,7 @@ class AssetsService {
   async create(data, params) {
     const id = this.idcounter;
     this.idcounter = this.idcounter + 1;
-
+  
     const asset = {
       id: id,
       name: data.name,
@@ -777,6 +777,7 @@ function calculateTimedEvents(physicsTick) {
   currentLevel.tick(tick, service);
 
   if (currentLevel.levelLost(tick, service)) {
+    levelStartTick = physicsTick;
     currentLevel = new levels[levels.length-1](service);
     return 
   }
@@ -784,6 +785,12 @@ function calculateTimedEvents(physicsTick) {
   if (currentLevel.levelEnd(tick, service)) {
     level++;
     levelStartTick = physicsTick;
+
+    // Restart game after defeat
+    if (currentLevel.name === 'Defeat') {
+      level = 0;
+    }
+
     currentLevel = new levels[level](service);
   }
 

@@ -439,6 +439,14 @@ export async function addAsset(asset) {
       }
     }
 
+    if (asset.type === 'countdown') {
+console.log('countdown asset', asset);
+      const countdown = document.getElementById('countdown');
+      const text = document.getElementById('countdownText');
+      countdown.style.display = 'flex';
+      text.innerHTML = asset.text;
+    }
+
     if (asset.type === 'attached') {
       assets[asset.attached].object.add(object);
     }
@@ -455,6 +463,23 @@ export function updateAsset(asset) {
         existing[key] = asset[key];
       }
     }
+
+    if (asset.type === 'announcement') {
+      if (asset.name !== undefined) {
+        const title = document.getElementById('announcementTitle');
+        title.innerHTML = asset.name;
+      }
+      if (asset.text !== undefined) {
+        const text = document.getElementById('announcementText');
+        text.innerHTML = asset.text;
+      }
+    }
+    if (asset.type === 'countdown') {
+      if (asset.text !== undefined) {
+        const text = document.getElementById('countdownText');
+        text.innerHTML = asset.text;
+      }
+    }
   } else {
     // console.error('Unable to update asset, no asset found with with the id ' + asset.id);
   }
@@ -469,6 +494,10 @@ export function removeAsset(id) {
       assets[existing.attached].object.remove(existing.object);
     }
     delete(assets[id]);
+
+    if (existing.type === 'countdown') {
+      countdown.style.display = 'none';
+    }
   } else {
     console.error('Unable to remove asset, no asset found with with the id ' + id);
   }
@@ -477,6 +506,7 @@ export function removeAsset(id) {
 export function setControlledAsset(asset) {
   const existing = assets[asset.id];
   if (existing) {
+    const countdown = document.getElementById('countdown');
     controlledAsset = existing;
   } else {
     console.error('Unable to setControlledAsset, no asset found with with the id ' + asset.id);

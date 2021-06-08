@@ -46,9 +46,6 @@ class Level2 extends Levels {
 class End extends Levels {
   constructor(service) {
     super(service, 'End', 0, "Congratulations! You've beaten the game", 100000);
-    //service.create({
-    //  type: 'countdown',
-    //});
   }
   tick() {
   }
@@ -62,14 +59,35 @@ class End extends Levels {
 class Defeat extends Levels {
   constructor(service) {
     super(service, 'Defeat', 0, "The asteroids broke through! Earth's fate is out of your hands.", 100000);
+    this.countdown = undefined
+    service.create({
+      type: 'countdown',
+      text: 'Next game starting in 20'
+    }).then(a => this.countdown = a);
   }
   tick(tick, service) {
+    if (tick % 20 === 0 && this.countdown) {
+      service.patch(this.countdown.id, {text: 'Next game starting in ' + String(20 - Math.floor(tick / 20))});
+    }
   }
   levelLost(tick, service) {
     return false;
   }
   levelEnd(tick, service) {
-    return false
+    if (tick > 400) {
+      const asteroids = Object.values(service.assets).filter(a => a.type === 'asteroid');
+      asteroids.forEach((asteroid) => {
+        service.remove(asteroid.id);
+      });
+
+      if (this.countdown) {
+        service.remove(this.countdown.id);
+      }
+
+      return true;
+    }
+
+    return false;
   }
 }
 
