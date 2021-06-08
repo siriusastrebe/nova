@@ -6,9 +6,11 @@ https://codesandbox.io/s/github/Sean-Bradley/Three.js-TypeScript-Boilerplate/tre
 
 
 # Issues I faced
+Creating performant stars in the sky
 The mathematics behind consecutive Euler angle rotations
 Synchronized timer
-Deterministic physics, delayed actions, delayed client side rendering
+Deterministic physics, network jitter
+Collision detection, quadtrees
 
 # List of Physics engines:
 Cannon.js

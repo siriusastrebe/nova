@@ -46,6 +46,9 @@ class Level2 extends Levels {
 class End extends Levels {
   constructor(service) {
     super(service, 'End', 0, "Congratulations! You've beaten the game", 100000);
+    //service.create({
+    //  type: 'countdown',
+    //});
   }
   tick() {
   }
@@ -56,6 +59,20 @@ class End extends Levels {
     return false
   }
 }
+class Defeat extends Levels {
+  constructor(service) {
+    super(service, 'Defeat', 0, "The asteroids broke through! Earth's fate is out of your hands.", 100000);
+  }
+  tick(tick, service) {
+  }
+  levelLost(tick, service) {
+    return false;
+  }
+  levelEnd(tick, service) {
+    return false
+  }
+}
+
 
 function standardLossCondition(tick, service) {
   // Give the users plenty of leeway
@@ -140,6 +157,9 @@ function createAnnouncement(service, title, text) {
     name: title,
     text: text,
     type: 'announcement',
+    vitals: {
+      duration: 3600,
+    }
   }
 
   service.create(announcement).then((a) => {
@@ -168,5 +188,6 @@ exports.levels = function () {
     Level1, 
     Level2, 
     End,
+    Defeat,
   ];
 }

@@ -244,6 +244,15 @@ function render() {
 
       asset.object.setRotationFromQuaternion(orientation);
     }
+
+    if (asset.type === 'announcement') {
+      if (asset.vitals.duration && asset.local.durationStart) {
+        if (asset.local.durationStart + asset.vitals.duration < new Date().getTime()) {
+          const announcement = document.getElementById('announcement');
+          announcement.style.display = 'none';
+        }
+      }
+    }
   });
 
   if (controlledAsset && controlledAsset.object) {
@@ -413,6 +422,8 @@ export async function addAsset(asset) {
       object.castShadow = false;
 
       asset.object = object;
+
+      scene.add(object);
     }
 
     if (asset.type === 'announcement') {
@@ -422,12 +433,14 @@ export async function addAsset(asset) {
       announcement.style.display = 'flex';
       title.innerHTML = asset.name;
       text.innerHTML = asset.text;
+      if (asset.vitals && asset.vitals.duration) {
+        if (asset.local === undefined) { asset.local = {} }
+        asset.local.durationStart = new Date().getTime();
+      }
     }
 
     if (asset.type === 'attached') {
       assets[asset.attached].object.add(object);
-    } else {
-      scene.add(object);
     }
   } else {
     console.log('attempting to add asset that already exists.');
